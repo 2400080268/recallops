@@ -21,7 +21,10 @@ export function getGroqClient(): Groq {
   }
 
   if (!groqInstance) {
-    groqInstance = new Groq({ apiKey });
+    groqInstance = new Groq({
+      apiKey,
+      timeout: 15000, // 15-second request timeout for agent responsiveness
+    });
   }
 
   return groqInstance;

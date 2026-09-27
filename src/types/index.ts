@@ -11,6 +11,7 @@ export interface Incident {
   status: IncidentStatus;
   started: string;
   duration: string;
+  timeAgo?: string;
   error: string;
   details: string;
   impactSeverity?: string;
@@ -58,6 +59,38 @@ export interface Incident {
     previousSuccessfulResolution: string;
     historicalAntiPatternAlert: string;
     decisionContext: string;
+    confidenceAssessment?: {
+      level: "high" | "medium" | "low";
+      score: number;
+      basis: string;
+      factors: string[];
+    };
+    recurringPatterns?: string[];
+    whatWorkedBefore?: Array<{
+      action: string;
+      incidentIds: string[];
+      details?: string;
+    }>;
+    whatFailedBefore?: Array<{
+      action: string;
+      incidentIds: string[];
+      consequence?: string;
+    }>;
+    recommendationReasons?: Array<{
+      action: string;
+      why: string;
+      evidenceCited: string[];
+    }>;
+    caveats?: string[];
+    isNovel?: boolean;
+    hasContradictoryEvidence?: boolean;
+    contradictionDetails?: string;
+    mostRecentEvidence?: {
+      id: string;
+      title: string;
+      age: string;
+      isRecentlyLearned: boolean;
+    };
   };
   similarIncidentIds?: string[];
   resolutionDetails?: {

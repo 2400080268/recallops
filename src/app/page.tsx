@@ -2,483 +2,505 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Icon } from "@/components/Icon";
-import { services } from "@/lib/mock-data";
+import {
+  Flame,
+  Brain,
+  CheckCircle2,
+  Database,
+  ArrowRight,
+  RefreshCw,
+  Zap,
+  Activity,
+  Server,
+  FileText,
+  AlertCircle,
+  Network,
+  Sparkles,
+} from "lucide-react";
 import { useIncidents } from "@/lib/incident-store";
 
 export default function DashboardPage() {
-  const [timeRange, setTimeRange] = useState<"24h" | "7d" | "30d">("24h");
+  const [filterTab, setFilterTab] = useState<"all" | "active" | "resolved">("all");
+  const [dismissedMemoryMatch, setDismissedMemoryMatch] = useState(false);
   const { incidents, stats } = useIncidents();
 
+  const filteredIncidents = incidents.filter((inc) => {
+    if (filterTab === "active") return inc.status === "Open" || inc.status === "In Progress";
+    if (filterTab === "resolved") return inc.status === "Resolved";
+    return true;
+  });
+
   return (
-    <div className="flex flex-col w-full">
-      {/* Page Header */}
-      <div className="flex flex-col gap-space-md mb-space-xl">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
-          <div>
-            <div className="flex items-center gap-space-xs mb-1">
-              <span className="font-label-sm text-label-sm text-secondary uppercase tracking-widest">
-                Telemetry • Overview
-              </span>
-              <span className="h-1 w-1 rounded-full bg-outline"></span>
-              <span className="font-label-sm text-label-sm text-outline">
-                Realtime Stream
-              </span>
-            </div>
-            <h1 className="font-headline-xl text-headline-xl text-on-surface tracking-tight">
+    <div className="flex flex-col gap-6 w-full">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-xl md:text-2xl font-semibold text-[#FAFAFA] tracking-tight">
               Dashboard
             </h1>
-            <p className="font-body-md text-body-md text-on-surface-variant mt-0.5">
-              Monitor incidents, system health, and response activity across
-              ShopEase production.
-            </p>
+            <span className="text-[11px] font-mono text-[#A1A1AA] bg-[#111111] border border-[#27272A] px-2 py-0.5 rounded">
+              v2.4-live
+            </span>
           </div>
+          <p className="text-xs md:text-sm text-[#A1A1AA]">
+            Monitor incidents, system health, and organizational response.
+          </p>
+        </div>
 
-          <div className="flex items-center gap-space-sm self-start md:self-auto">
-            <div className="flex items-center gap-space-xs px-space-md py-1.5 rounded-lg bg-surface-container-low shadow-sm border border-[#1F2A37]/50">
-              <span className="h-2 w-2 rounded-full bg-secondary animate-pulse"></span>
-              <span className="font-label-sm text-label-sm text-on-surface font-mono">
-                Live Correlation: Active
-              </span>
-            </div>
-            <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-container-low shadow-sm border border-[#1F2A37]/50">
-              {(["24h", "7d", "30d"] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setTimeRange(range)}
-                  className={`px-space-sm py-1 rounded font-label-sm text-label-sm transition-colors ${
-                    timeRange === range
-                      ? "bg-surface-container-high text-primary font-medium shadow-inner"
-                      : "text-outline hover:text-on-surface"
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#111111] border border-[#27272A] text-xs text-[#A1A1AA] font-mono">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+            <span>Auto-sync: 30s</span>
           </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#111111] border border-[#27272A] hover:bg-[#171717] text-xs font-medium text-[#FAFAFA] transition-colors"
+          >
+            <RefreshCw size={13} className="text-[#A1A1AA]" />
+            <span>Sync</span>
+          </button>
         </div>
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md mb-space-xl">
-        {/* Total Incidents */}
-        <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-colors border border-[#1F2A37]/50">
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-surface-variant/30 rounded-full blur-xl pointer-events-none"></div>
-          <div className="flex items-center justify-between mb-space-md">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-mono">
-              Total Incidents
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Active Incidents */}
+        <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#A1A1AA]">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717A]">
+              ACTIVE INCIDENTS
             </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-outline group-hover:text-on-surface transition-colors">
-              <Icon name="report_problem" size={18} />
-            </div>
+            <Flame size={16} className="text-[#EF4444]" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-space-sm">
-              <span className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
-                {stats.total}
-              </span>
-              <span className="font-label-sm text-label-sm text-secondary font-mono flex items-center gap-0.5">
-                <Icon name="trending_up" size={14} />
-                +3 this week
-              </span>
-            </div>
-            <div className="mt-space-md h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden flex">
-              <div
-                className="h-full bg-error"
-                style={{ width: `${(stats.sev1 / (stats.total || 1)) * 100}%` }}
-              ></div>
-              <div
-                className="h-full bg-secondary"
-                style={{ width: `${(stats.sev2 / (stats.total || 1)) * 100}%` }}
-              ></div>
-              <div
-                className="h-full bg-primary"
-                style={{ width: `${(stats.sev3 / (stats.total || 1)) * 100}%` }}
-              ></div>
-            </div>
-            <div className="flex justify-between items-center mt-space-xs font-label-sm text-[10px] text-outline font-mono">
-              <span>Sev-1: {stats.sev1}</span>
-              <span>Sev-2: {stats.sev2}</span>
-              <span>Sev-3: {stats.sev3}</span>
-            </div>
+          <div className="my-2 flex items-baseline justify-between">
+            <span className="text-3xl font-bold text-[#FAFAFA] tracking-tight font-mono">
+              {stats.open || 3}
+            </span>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[#EF4444]/15 border border-[#EF4444]/30 text-[#EF4444]">
+              Unresolved
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
+            <span>1 P1 critical, 2 P2 medium</span>
+            <span className="text-[#F59E0B]">SLO breach risk</span>
           </div>
         </div>
 
-        {/* Open Critical */}
-        <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-colors border border-[#1F2A37]/50">
-          <div className="absolute -right-4 -top-4 w-20 h-20 bg-error-container/40 rounded-full blur-xl pointer-events-none"></div>
-          <div className="flex items-center justify-between mb-space-md">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-error font-mono">
-              Open Incidents
+        {/* Investigating */}
+        <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#A1A1AA]">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717A]">
+              INVESTIGATING
             </span>
-            <div className="w-8 h-8 rounded-lg bg-error-container/20 flex items-center justify-center text-error">
-              <Icon name="local_fire_department" size={18} />
+            <Brain size={16} className="text-[#22D3EE]" />
+          </div>
+          <div className="my-2 flex items-baseline justify-between">
+            <span className="text-3xl font-bold text-[#FAFAFA] tracking-tight font-mono">
+              {stats.inProgress || 1}
+            </span>
+            <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded bg-[#22D3EE]/15 border border-[#22D3EE]/30 text-[#22D3EE]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22D3EE] animate-pulse"></span>
+              <span>In progress</span>
             </div>
           </div>
-          <div>
-            <div className="flex items-baseline gap-space-sm">
-              <span className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
-                {stats.open}
-              </span>
-              <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-mono uppercase tracking-wide">
-                Requires triage
-              </span>
-            </div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm truncate">
-              {stats.open > 0 ? `${stats.open} active incidents pending resolution` : "No open incidents requiring triage"}
-            </p>
+          <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
+            <span>AI agent analyzing root cause</span>
+            <span className="font-mono text-[#FAFAFA]">Step 4/6</span>
           </div>
         </div>
 
-        {/* In Progress */}
-        <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-colors border border-[#1F2A37]/50">
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-secondary-container/20 rounded-full blur-xl pointer-events-none"></div>
-          <div className="flex items-center justify-between mb-space-md">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-secondary font-mono">
-              In Progress
+        {/* Resolved 7D */}
+        <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#A1A1AA]">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717A]">
+              RESOLVED (7D)
             </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-secondary">
-              <Icon
-                name="autorenew"
-                size={18}
-                className={stats.inProgress > 0 ? "animate-spin" : ""}
-              />
-            </div>
+            <CheckCircle2 size={16} className="text-[#22C55E]" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-space-sm">
-              <span className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
-                {stats.inProgress}
-              </span>
-              <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-highest text-secondary font-mono">
-                AI Agent investigating
-              </span>
-            </div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm truncate">
-              {stats.inProgress > 0 ? "RecallOps investigation active" : "No investigations currently running"}
-            </p>
+          <div className="my-2 flex items-baseline justify-between">
+            <span className="text-3xl font-bold text-[#FAFAFA] tracking-tight font-mono">
+              {stats.resolved > 0 ? stats.resolved + 25 : 28}
+            </span>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[#22C55E]/15 border border-[#22C55E]/30 text-[#22C55E]">
+              +12% vs 1w
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
+            <span>94% within SLO target</span>
+            <span className="font-mono text-[#FAFAFA]">MTTR: 18m</span>
           </div>
         </div>
 
-        {/* Resolved (7d) */}
-        <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col justify-between shadow-md relative overflow-hidden group hover:bg-surface-container transition-colors border border-[#1F2A37]/50">
-          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/10 rounded-full blur-xl pointer-events-none"></div>
-          <div className="flex items-center justify-between mb-space-md">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-mono">
-              Resolved
+        {/* Memory Learned */}
+        <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-[#A1A1AA]">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-[#71717A]">
+              MEMORY LEARNED
             </span>
-            <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-primary">
-              <Icon name="check_circle" size={18} />
-            </div>
+            <Network size={16} className="text-[#3B82F6]" />
           </div>
-          <div>
-            <div className="flex items-baseline gap-space-sm">
-              <span className="font-headline-xl text-headline-xl text-on-surface tracking-tight font-semibold">
-                {stats.resolved}
-              </span>
-              <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-mono font-medium">
-                Mitigations applied
-              </span>
-            </div>
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm truncate">
-              Telemetry and runbooks preserved
-            </p>
+          <div className="my-2 flex items-baseline justify-between">
+            <span className="text-3xl font-bold text-[#FAFAFA] tracking-tight font-mono">
+              47
+            </span>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-[#171717] border border-[#27272A] text-[#A1A1AA]">
+              Indexed
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-[#A1A1AA]">
+            <span>+3 added this week</span>
+            <span className="font-mono text-[#22C55E]">99.1% recall</span>
           </div>
         </div>
       </div>
 
-      {/* Middle Row: Recent Incidents & System Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg mb-space-xl">
-        {/* Recent Incidents (8 columns) */}
-        <div className="lg:col-span-8 flex flex-col">
-          <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col h-full shadow-md border border-[#1F2A37]/50">
-            <div className="flex items-center justify-between pb-space-md">
-              <div className="flex items-center gap-space-sm">
-                <span className="font-headline-sm text-headline-sm text-on-surface">
-                  Recent Incidents
-                </span>
-                <span className="font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-surface-container text-outline font-mono">
-                  ShopEase Prod
-                </span>
+      {/* Main Two-Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column (Recent Incidents) */}
+        <div className="lg:col-span-8 flex flex-col gap-4">
+          <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 md:p-5 flex flex-col gap-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-[#FAFAFA]">
+                    Recent Incidents
+                  </h2>
+                  <span className="h-2 w-2 rounded-full bg-[#EF4444] animate-pulse"></span>
+                </div>
+                <p className="text-xs text-[#71717A] mt-0.5">
+                  Real-time triage ledger and automated postmortems
+                </p>
               </div>
               <Link
                 href="/incidents"
-                className="font-label-md text-label-md text-primary hover:text-primary-fixed-dim transition-colors flex items-center gap-1 group"
+                className="flex items-center gap-1 text-xs text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
               >
-                <span>View all</span>
-                <Icon
-                  name="arrow_forward"
-                  size={16}
-                  className="group-hover:translate-x-0.5 transition-transform"
-                />
+                <span>View all incidents</span>
+                <ArrowRight size={13} />
               </Link>
             </div>
 
-            <div className="flex flex-col divide-y divide-surface-container-lowest/60 overflow-hidden">
-              {incidents.slice(0, 5).map((incident) => {
-                const isCriticalOrHigh =
-                  incident.severity === "Critical" ||
-                  incident.severity === "High";
-                const isOpen = incident.status === "Open";
+            {/* Filter Tabs */}
+            <div className="flex items-center justify-between border-b border-[#27272A] pb-2 text-xs">
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setFilterTab("all")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    filterTab === "all"
+                      ? "bg-[#171717] text-[#FAFAFA] font-medium"
+                      : "text-[#71717A] hover:text-[#A1A1AA]"
+                  }`}
+                >
+                  All {incidents.length}
+                </button>
+                <button
+                  onClick={() => setFilterTab("active")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    filterTab === "active"
+                      ? "bg-[#171717] text-[#FAFAFA] font-medium"
+                      : "text-[#71717A] hover:text-[#A1A1AA]"
+                  }`}
+                >
+                  Active {stats.open + stats.inProgress}
+                </button>
+                <button
+                  onClick={() => setFilterTab("resolved")}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    filterTab === "resolved"
+                      ? "bg-[#171717] text-[#FAFAFA] font-medium"
+                      : "text-[#71717A] hover:text-[#A1A1AA]"
+                  }`}
+                >
+                  Resolved {stats.resolved}
+                </button>
+              </div>
+              <span className="text-[11px] text-[#71717A] font-mono hidden sm:inline">
+                Sorted by newest
+              </span>
+            </div>
+
+            {/* Incidents List */}
+            <div className="flex flex-col gap-2.5">
+              {filteredIncidents.slice(0, 5).map((inc) => {
+                const isP1 = inc.severity === "Critical" || inc.severity === "High";
+                const isResolved = inc.status === "Resolved";
+                const isInvestigating = inc.status === "In Progress";
 
                 return (
-                  <Link
-                    key={incident.id}
-                    href={`/incidents/${incident.id}`}
-                    className={`flex items-center justify-between p-space-md rounded-lg hover:bg-surface-container transition-all cursor-pointer group ${
-                      isOpen ? "bg-surface-container-lowest/30" : ""
-                    }`}
+                  <div
+                    key={inc.id}
+                    className="p-3.5 rounded-lg bg-[#080808] border border-[#27272A] hover:border-[#3F3F46] transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
-                    <div className="flex items-center gap-space-md min-w-0">
-                      <span className="font-label-sm text-label-sm text-outline font-mono group-hover:text-primary transition-colors">
-                        {incident.id}
-                      </span>
-                      <div className="flex flex-col min-w-0">
-                        <div className="flex items-center gap-space-xs">
-                          <span className="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-fixed-dim truncate">
-                            {incident.title}
+                    <div className="flex items-start gap-3">
+                      {/* Status Icon */}
+                      <div className="mt-0.5">
+                        {isResolved ? (
+                          <div className="w-6 h-6 rounded bg-[#22C55E]/10 border border-[#22C55E]/30 flex items-center justify-center text-[#22C55E]">
+                            <CheckCircle2 size={14} />
+                          </div>
+                        ) : isP1 ? (
+                          <div className="w-6 h-6 rounded bg-[#EF4444]/10 border border-[#EF4444]/30 flex items-center justify-center text-[#EF4444]">
+                            <AlertCircle size={14} />
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded bg-[#22D3EE]/10 border border-[#22D3EE]/30 flex items-center justify-center text-[#22D3EE]">
+                            <Activity size={14} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/incidents/${inc.id}`}
+                            className="font-medium text-sm text-[#FAFAFA] hover:text-[#3B82F6] transition-colors"
+                          >
+                            {inc.title}
+                          </Link>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#171717] border border-[#27272A] text-[#A1A1AA]">
+                            {inc.service}
                           </span>
-                          {isOpen && (
-                            <span className="h-2 w-2 rounded-full bg-error animate-ping"></span>
-                          )}
+                          <span
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                              inc.severity === "Critical"
+                                ? "bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30"
+                                : inc.severity === "High"
+                                ? "bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30"
+                                : "bg-[#171717] text-[#A1A1AA] border border-[#27272A]"
+                            }`}
+                          >
+                            {inc.severity === "Critical" ? "P0 Hard Outage" : inc.severity === "High" ? "P1 Critical" : "P2 Medium"}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-space-sm mt-0.5">
-                          <span className="font-label-sm text-label-sm text-outline font-mono">
-                            Service:{" "}
-                            <span className="text-on-surface-variant font-medium">
-                              {incident.service}
-                            </span>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-[#71717A] font-mono">
+                          <span className="flex items-center gap-1">
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                isResolved
+                                  ? "bg-[#22C55E]"
+                                  : isInvestigating
+                                  ? "bg-[#22D3EE] animate-pulse"
+                                  : "bg-[#EF4444]"
+                              }`}
+                            ></span>
+                            <span className="text-[#A1A1AA]">{inc.status}</span>
                           </span>
-                          <span className="h-1 w-1 rounded-full bg-outline"></span>
-                          <span className="font-label-sm text-label-sm text-outline font-mono">
-                            {incident.started}
+                          <span>•</span>
+                          <span>{inc.timeAgo || "4m ago"}</span>
+                          <span>•</span>
+                          <span className="text-[#A1A1AA]">
+                            {isResolved ? "Postmortem Ready" : "Rate: 1,842 err/min"}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-space-md shrink-0">
-                      <span
-                        className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-mono font-medium ${
-                          isCriticalOrHigh
-                            ? "bg-error-container text-on-error-container"
-                            : "bg-surface-container-highest text-secondary"
-                        }`}
-                      >
-                        Sev: {incident.severity === "Medium" ? "Med" : incident.severity}
-                      </span>
-
-                      <span
-                        className={`font-label-sm text-label-sm px-2 py-0.5 rounded-full font-mono ${
-                          incident.status === "Resolved"
-                            ? "bg-surface-container-high text-primary"
-                            : incident.status === "Open"
-                            ? "bg-error-container text-error font-bold animate-pulse"
-                            : "bg-surface-container-high text-secondary"
-                        }`}
-                      >
-                        {incident.status}
-                      </span>
-
-                      <Icon
-                        name="chevron_right"
-                        size={18}
-                        className="text-outline group-hover:text-on-surface group-hover:translate-x-0.5 transition-all"
-                      />
+                    {/* Action Button */}
+                    <div className="sm:self-center self-end">
+                      {isResolved ? (
+                        <Link
+                          href={`/incidents/${inc.id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#111111] hover:bg-[#171717] border border-[#27272A] text-xs font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
+                        >
+                          <FileText size={13} />
+                          <span>Postmortem</span>
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/incidents/${inc.id}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#3B82F6] hover:bg-blue-600 text-white text-xs font-medium transition-colors"
+                        >
+                          <span>Open Investigation</span>
+                          <ArrowRight size={13} />
+                        </Link>
+                      )}
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
+
+            {/* Memory Match Available Callout Box */}
+            {!dismissedMemoryMatch && (
+              <div className="mt-2 p-3.5 rounded-lg bg-[#080808] border border-[#22D3EE]/30 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-md bg-[#22D3EE]/10 border border-[#22D3EE]/30 flex items-center justify-center text-[#22D3EE] shrink-0 mt-0.5">
+                    <Sparkles size={15} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-[#FAFAFA]">
+                        Memory Match Available
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#22D3EE]/15 text-[#22D3EE] border border-[#22D3EE]/30">
+                        92% similarity
+                      </span>
+                      <span className="text-[10px] font-mono text-[#71717A]">
+                        ref INC-2041
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed">
+                      Active <strong className="text-white">Checkout API 503</strong> matches symptoms from{" "}
+                      <strong className="text-white">INC-2041</strong> (Oct 24). Mitigated by increasing connection pool sizing on Envoy upstream proxy.
+                    </p>
+                    <div className="flex items-center gap-3 mt-2 text-xs">
+                      <Link
+                        href="/incidents/INC-1001"
+                        className="flex items-center gap-1 text-[#3B82F6] hover:underline font-medium"
+                      >
+                        <Zap size={13} />
+                        <span>Apply known mitigation</span>
+                      </Link>
+                      <button
+                        onClick={() => setDismissedMemoryMatch(true)}
+                        className="text-[#71717A] hover:text-[#A1A1AA]"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* System Status (4 columns) */}
-        <div className="lg:col-span-4 flex flex-col">
-          <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col h-full shadow-md border border-[#1F2A37]/50">
-            <div className="flex items-center justify-between pb-space-md">
-              <span className="font-headline-sm text-headline-sm text-on-surface">
-                System Status
-              </span>
-              <span className="font-label-sm text-label-sm font-mono text-outline">
-                Cluster: East-Primary
-              </span>
-            </div>
-
-            <div className="p-space-md rounded-lg bg-surface-container mb-space-md flex items-center justify-between shadow-inner border border-[#1F2A37]/40">
-              <div className="flex items-center gap-space-sm">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary"></span>
-                </span>
-                <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                  All systems operational
-                </span>
+        {/* Right Column (System Health & Impact) */}
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          {/* System Health */}
+          <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+                <Server size={15} className="text-[#A1A1AA]" />
+                <span>System Health</span>
               </div>
-              <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-highest text-secondary font-mono">
-                99.98% SLA
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+                6/6 Monitored
               </span>
             </div>
 
-            <div className="flex flex-col gap-space-sm flex-1 justify-between">
-              {services.map((service) => (
+            <div className="flex flex-col gap-2 mt-1">
+              {[
+                { name: "API Gateway", latency: "28ms" },
+                { name: "Payment Service", latency: "142ms" },
+                { name: "Orders Service", latency: "84ms" },
+                { name: "Search Service", latency: "65ms" },
+                { name: "Primary Database", latency: "4ms" },
+                { name: "Redis Cache", latency: "1.2ms" },
+              ].map((svc) => (
                 <div
-                  key={service.name}
-                  className="p-space-sm rounded-lg hover:bg-surface-container transition-colors"
+                  key={svc.name}
+                  className="flex items-center justify-between text-xs py-1 border-b border-[#171717] last:border-0"
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-space-xs">
-                      <span className="h-1.5 w-1.5 rounded-full bg-secondary"></span>
-                      <span className="font-body-md text-body-md text-on-surface font-medium">
-                        {service.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-space-sm font-mono font-label-sm text-label-sm">
-                      <span className="text-secondary">{service.status}</span>
-                      <span className="text-outline">{service.latency}</span>
-                    </div>
+                  <div className="flex items-center gap-2 text-[#D4D4D8]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+                    <span>{svc.name}</span>
                   </div>
-                  <div className="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-secondary"
-                      style={{ width: `${service.loadPercentage}%` }}
-                    ></div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#71717A]">Healthy</span>
+                    <span className="font-mono text-[#A1A1AA]">{svc.latency}</span>
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="pt-2 border-t border-[#27272A] flex justify-between items-center text-[11px] text-[#71717A] font-mono">
+              <span>Core cluster uptime</span>
+              <span className="text-[#22C55E] font-medium">99.98%</span>
+            </div>
+          </div>
+
+          {/* AI & Memory Impact */}
+          <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+                <Brain size={15} className="text-[#22D3EE]" />
+                <span>AI & Memory Impact</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#71717A]">
+                7 Day Window
+              </span>
+            </div>
+
+            <p className="text-xs text-[#A1A1AA] leading-relaxed">
+              RecallOps evaluated 14 incidents this week using historical memory vectors to shorten incident blast radius.
+            </p>
+
+            <div className="flex flex-col gap-1.5 mt-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-[#A1A1AA]">Prior Solution Reuse</span>
+                <span className="font-mono font-bold text-[#FAFAFA]">86%</span>
+              </div>
+              <div className="w-full h-1.5 bg-[#171717] rounded-full overflow-hidden">
+                <div className="bg-[#3B82F6] h-full rounded-full" style={{ width: "86%" }}></div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-[#27272A] flex flex-col gap-2">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[#71717A]">
+                ACTIVE GRAPH NODES
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  "# Postgres Connection Pool",
+                  "# Stripe Webhook Handshake",
+                  "# Envoy HTTP/2 Reset",
+                ].map((node) => (
+                  <span
+                    key={node}
+                    className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#171717] border border-[#27272A] text-[#A1A1AA]"
+                  >
+                    {node}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Row: Quick Actions & AI Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
-        {/* Quick Actions (5 columns) */}
-        <div className="lg:col-span-5 flex flex-col">
-          <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col justify-between h-full shadow-md border border-[#1F2A37]/50">
-            <div>
-              <div className="flex items-center justify-between mb-space-sm">
-                <span className="font-headline-sm text-headline-sm text-on-surface">
-                  Quick Actions
-                </span>
-                <span className="font-label-sm text-label-sm text-outline font-mono">
-                  Runbook v2.4
-                </span>
-              </div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
-                Trigger autonomous drill routines or drill directly into vector
-                contextual memory.
-              </p>
+      {/* Bottom Protocol Banner */}
+      <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 md:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-[#171717] border border-[#27272A] flex items-center justify-center text-[#A1A1AA]">
+            <Activity size={16} />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-[#FAFAFA]">
+              Incident Readiness Protocol
             </div>
-
-            <div className="flex flex-col gap-space-sm">
-              <Link
-                href="/simulator"
-                className="w-full py-2.5 px-space-md rounded-lg bg-primary-container text-on-primary font-headline-sm text-headline-sm font-semibold flex items-center justify-center gap-space-xs shadow-lg hover:bg-primary transition-all active:scale-[0.99] group text-center"
-              >
-                <Icon
-                  name="bolt"
-                  size={20}
-                  className="text-on-primary group-hover:rotate-12 transition-transform"
-                />
-                <span>Simulate New Incident</span>
-              </Link>
-
-              <div className="grid grid-cols-2 gap-space-sm">
-                <Link
-                  href="/incidents"
-                  className="py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-md text-body-md flex items-center justify-center gap-1.5 transition-colors border border-[#1F2A37]/30"
-                >
-                  <Icon name="list_alt" size={18} className="text-outline" />
-                  <span>All Incidents</span>
-                </Link>
-
-                <Link
-                  href="/memory"
-                  className="py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-md text-body-md flex items-center justify-center gap-1.5 transition-colors border border-[#1F2A37]/30"
-                >
-                  <Icon
-                    name="psychology"
-                    size={18}
-                    className="text-secondary"
-                  />
-                  <span>Search Memory</span>
-                </Link>
-              </div>
-            </div>
+            <p className="text-xs text-[#71717A]">
+              Trigger controlled scenario tests or query organizational learnings instantly.
+            </p>
           </div>
         </div>
 
-        {/* AI Response Activity (7 columns) */}
-        <div className="lg:col-span-7 flex flex-col">
-          <div className="rounded-xl bg-surface-container-low p-space-lg flex flex-col justify-between h-full shadow-md relative overflow-hidden border border-[#1F2A37]/50">
-            <div className="absolute right-0 top-0 w-48 h-48 bg-secondary/5 rounded-full blur-3xl pointer-events-none"></div>
-            <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs mb-space-sm">
-                <div className="flex items-center gap-space-xs">
-                  <Icon name="insights" size={20} className="text-secondary" />
-                  <span className="font-headline-sm text-headline-sm text-on-surface">
-                    AI Response Activity
-                  </span>
-                </div>
-                <span className="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-surface-container-highest text-secondary font-mono self-start sm:self-auto">
-                  92% automated root cause precision
-                </span>
-              </div>
-              <p className="font-body-md text-body-md text-on-surface">
-                RecallOps investigated{" "}
-                <span className="font-semibold text-primary">
-                  14 incidents
-                </span>{" "}
-                this week using organizational memory vectors.
-              </p>
-            </div>
-
-            <div className="mt-space-md pt-space-md">
-              <div className="flex items-end justify-between h-20 gap-2 mb-space-xs px-space-xs">
-                {[
-                  { day: "Mon", height: "35%", active: false },
-                  { day: "Tue", height: "55%", active: false },
-                  { day: "Wed", height: "20%", active: false },
-                  { day: "Thu", height: "85%", active: true },
-                  { day: "Fri", height: "60%", active: false },
-                  { day: "Sat", height: "15%", active: false },
-                  { day: "Sun", height: "40%", active: false },
-                ].map(({ day, height, active }) => (
-                  <div
-                    key={day}
-                    className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group"
-                  >
-                    <div
-                      className={`w-full rounded-t transition-all ${
-                        active
-                          ? "bg-secondary shadow-[0_0_12px_rgba(93,230,255,0.4)]"
-                          : "bg-surface-container-highest group-hover:bg-secondary"
-                      }`}
-                      style={{ height }}
-                    ></div>
-                    <span
-                      className={`font-label-sm text-[10px] font-mono ${
-                        active
-                          ? "text-secondary font-bold"
-                          : "text-outline"
-                      }`}
-                    >
-                      {day}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-space-xs font-label-sm text-label-sm text-outline font-mono border-t border-[#1F2A37]/30 mt-1">
-                <span>Historical correlation hits: 88</span>
-                <span className="text-secondary font-medium">
-                  Avg MTTK: 1.8 mins
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/memory"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-xs font-medium text-[#FAFAFA] transition-colors"
+          >
+            <Database size={13} className="text-[#A1A1AA]" />
+            <span>Search Memory</span>
+          </Link>
+          <Link
+            href="/incidents"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-xs font-medium text-[#FAFAFA] transition-colors"
+          >
+            <Server size={13} className="text-[#A1A1AA]" />
+            <span>Browse All Incidents</span>
+          </Link>
+          <Link
+            href="/simulator"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#3B82F6] hover:bg-blue-600 text-xs font-semibold text-white transition-colors shadow-sm"
+          >
+            <Zap size={13} className="fill-current text-white" />
+            <span>Simulate Incident</span>
+          </Link>
         </div>
       </div>
     </div>

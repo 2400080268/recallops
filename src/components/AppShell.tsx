@@ -3,92 +3,110 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon } from "@/components/Icon";
-
-const navItems = [
-  { href: "/", label: "Dashboard", icon: "grid_view" },
-  { href: "/simulator", label: "Incident Simulator", icon: "bolt", iconClass: "text-secondary" },
-  { href: "/incidents", label: "Incidents", icon: "emergency" },
-  { href: "/memory", label: "Memory", icon: "psychology", iconClass: "text-primary" },
-  { href: "/settings", label: "Settings", icon: "tune" },
-];
+import {
+  LayoutDashboard,
+  Zap,
+  AlertTriangle,
+  Search,
+  Brain,
+  SlidersHorizontal,
+  Bell,
+  Menu,
+  X,
+  ShieldCheck,
+  Command,
+} from "lucide-react";
+import { useIncidents } from "@/lib/incident-store";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { incidents } = useIncidents();
+
+  // Find latest active or investigated incident for the "Investigation" nav link
+  const latestIncidentId = incidents.find((i) => i.status === "In Progress" || i.status === "Open")?.id || incidents[0]?.id || "INC-1001";
+
+  const navItems = [
+    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/simulator", label: "Incident Simulator", icon: Zap },
+    { href: "/incidents", label: "Incidents", icon: AlertTriangle },
+    { href: `/incidents/${latestIncidentId}`, label: "Investigation", icon: Search },
+    { href: "/memory", label: "Memory", icon: Brain },
+    { href: "/settings", label: "Settings", icon: SlidersHorizontal },
+  ];
 
   const isActive = (href: string) => {
     if (href === "/") {
       return pathname === "/" || pathname === "/dashboard";
     }
+    if (href.startsWith("/incidents/")) {
+      return pathname.startsWith("/incidents/") && pathname !== "/incidents";
+    }
+    if (href === "/incidents") {
+      return pathname === "/incidents";
+    }
     return pathname.startsWith(href);
   };
 
   return (
-    <div className="min-h-screen bg-surface-container-lowest text-on-surface flex flex-col">
+    <div className="min-h-screen bg-[#000000] text-[#FAFAFA] flex flex-col font-sans">
       {/* Mobile Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-surface-container-lowest z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.4)] border-r border-[#1F2A37]/50 transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed left-0 top-0 h-screen w-64 bg-[#080808] z-50 flex flex-col justify-between border-r border-[#27272A] transition-transform duration-200 md:translate-x-0 ${
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
         <div className="flex flex-col">
           {/* Logo / Header */}
-          <div className="h-14 px-space-md flex items-center justify-between bg-surface-container-lowest border-b border-[#1F2A37]/40">
+          <div className="h-14 px-4 flex items-center justify-between border-b border-[#27272A]">
             <Link
               href="/"
-              className="flex items-center gap-space-sm"
+              className="flex items-center gap-2.5"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <img
-                alt="RecallOps Emblem"
-                className="h-8 w-8 object-contain rounded-lg"
-                src="/recallops-logo.svg"
-              />
-              <span className="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">
+              <div className="w-7 h-7 rounded-md bg-[#171717] border border-[#27272A] flex items-center justify-center text-[#22D3EE]">
+                <Zap size={15} className="fill-current text-[#22D3EE]" />
+              </div>
+              <span className="font-semibold text-[15px] text-[#FAFAFA] tracking-tight">
                 RecallOps
               </span>
             </Link>
-            <span className="font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-surface-container-high text-secondary font-mono uppercase">
-              v2.4-prod
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[#A1A1AA] border border-[#27272A] bg-[#111111] px-1.5 py-0.5 rounded font-medium">
+              ENTERPRISE
             </span>
           </div>
 
-          {/* Navigation */}
-          <div className="px-space-md py-space-sm">
-            <div className="text-[10px] font-label-sm uppercase tracking-wider text-outline px-space-xs mb-space-xs font-mono">
-              Operational Control
+          {/* Navigation Section */}
+          <div className="px-3 py-3">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] px-2 mb-2 font-medium">
+              PLATFORM
             </div>
-            <nav className="flex flex-col gap-space-xs">
+            <nav className="flex flex-col gap-1">
               {navItems.map((item) => {
                 const active = isActive(item.href);
+                const IconComponent = item.icon;
                 return (
                   <Link
-                    key={item.href}
+                    key={item.label}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-space-md px-space-md py-2 rounded-lg transition-colors font-body-md text-body-md ${
+                    className={`flex items-center gap-3 px-2.5 py-2 rounded-lg transition-colors text-[13px] ${
                       active
-                        ? "bg-surface-container-high text-primary font-semibold shadow-inner"
-                        : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                        ? "bg-[#171717] text-[#FAFAFA] font-medium border border-[#27272A]"
+                        : "text-[#A1A1AA] hover:bg-[#111111] hover:text-[#FAFAFA]"
                     }`}
                   >
-                    <Icon
-                      name={item.icon}
-                      className={
-                        active
-                          ? "text-primary"
-                          : item.iconClass || "text-on-surface-variant"
-                      }
-                      size={20}
+                    <IconComponent
+                      size={16}
+                      className={active ? "text-[#22D3EE]" : "text-[#71717A]"}
                     />
                     <span>{item.label}</span>
                   </Link>
@@ -99,91 +117,94 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Bottom Section */}
-        <div className="p-space-md">
-          <div className="p-space-md rounded-xl bg-surface-container-low flex flex-col gap-space-xs border border-[#1F2A37]/60">
-            <div className="flex items-center justify-between">
-              <span className="font-label-sm text-label-sm text-on-surface font-semibold">
-                ShopEase Eng
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
-                </span>
-                <span className="font-label-sm text-label-sm text-secondary font-mono">
-                  Prod
-                </span>
-              </div>
+        <div className="p-3 border-t border-[#27272A]">
+          <div className="px-2 py-2 flex flex-col gap-1">
+            <div className="text-[13px] font-medium text-[#FAFAFA]">
+              ShopEase Engineering
             </div>
-            <div className="flex items-center gap-space-xs text-outline font-label-sm text-label-sm">
-              <Icon name="verified" className="text-secondary text-[14px]" size={14} />
-              <span>All Systems Operational</span>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#71717A] font-mono">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+              <span>Production • us-east-1</span>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="md:pl-64 flex-1 flex flex-col">
+      {/* Main Content Container */}
+      <div className="md:pl-64 flex-1 flex flex-col min-h-screen">
         {/* Top Header */}
-        <header className="fixed top-0 left-0 md:left-64 right-0 h-14 bg-surface-container-lowest/90 backdrop-blur-xl z-40 px-space-md md:px-space-xl flex items-center justify-between shadow-[0_1px_8px_rgba(0,0,0,0.3)] border-b border-[#1F2A37]/50">
-          <div className="flex items-center gap-space-md md:gap-space-lg">
+        <header className="fixed top-0 left-0 md:left-64 right-0 h-14 bg-[#080808] z-40 px-4 md:px-6 flex items-center justify-between border-b border-[#27272A]">
+          <div className="flex items-center gap-3 md:gap-4">
             {/* Mobile menu trigger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-lg text-outline hover:text-on-surface md:hidden"
+              className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white md:hidden"
               aria-label="Toggle navigation menu"
             >
-              <Icon name="list_alt" size={20} />
+              {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
 
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm">
-              <span className="text-on-surface font-medium">RecallOps</span>
-              <Icon name="chevron_right" className="text-outline" size={14} />
-              <span className="font-mono text-outline">core-telemetry</span>
-            </div>
-
-            {/* Region Badge */}
-            <div className="hidden sm:flex items-center gap-space-xs px-space-sm py-1 rounded bg-surface-container-low font-label-sm text-label-sm text-on-surface border border-[#1F2A37]/40">
-              <span className="h-1.5 w-1.5 rounded-full bg-secondary"></span>
-              <span className="font-mono">Production • us-east-1</span>
+            {/* Breadcrumbs */}
+            <div className="hidden sm:flex items-center gap-2 text-xs text-[#71717A] font-mono">
+              <span className="text-[#D4D4D8]">ShopEase</span>
+              <span>/</span>
+              <span>Production</span>
+              <span>/</span>
+              <span className="text-[#A1A1AA]">us-east-1</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-space-md md:gap-space-lg">
-            {/* Clocks */}
-            <div className="hidden lg:flex items-center gap-space-sm font-label-sm text-label-sm text-outline font-mono">
-              <span className="flex items-center gap-1">
-                <Icon name="clock" size={14} className="text-outline" />
-                16:42:09 UTC
-              </span>
-              <span className="text-surface-variant">|</span>
-              <span>12:42:09 EDT</span>
+          {/* Center Search Input */}
+          <div className="hidden lg:flex items-center max-w-md w-full mx-4">
+            <div className="relative w-full">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#71717A]">
+                <Search size={14} />
+              </div>
+              <input
+                type="text"
+                readOnly
+                placeholder="Search incidents, memory, runs..."
+                className="w-full pl-9 pr-12 py-1.5 bg-[#111111] border border-[#27272A] rounded-lg text-xs text-[#A1A1AA] placeholder-[#71717A] focus:outline-none focus:border-[#3F3F46] cursor-pointer"
+                onClick={() => {
+                  const searchInput = document.querySelector<HTMLInputElement>("#global-search-input");
+                  searchInput?.focus();
+                }}
+              />
+              <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+                <kbd className="text-[10px] font-mono text-[#71717A] bg-[#171717] px-1.5 py-0.5 rounded border border-[#27272A]">
+                  ⌘K
+                </kbd>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Status & User Profile */}
+          <div className="flex items-center gap-3">
+            {/* Status Pill */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#111111] border border-[#27272A] text-xs text-[#D4D4D8]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+              <span className="hidden sm:inline font-medium">All Systems Operational</span>
+              <span className="sm:hidden font-medium">Healthy</span>
             </div>
 
             {/* Notifications Button */}
             <button
+              className="p-1.5 rounded-lg text-[#A1A1AA] hover:text-white hover:bg-[#171717] transition-colors"
               aria-label="Notifications"
-              className="relative p-space-xs rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
             >
-              <Icon name="notifications" size={20} />
-              <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-container text-on-primary font-label-sm text-[10px] font-bold">
-                2
-              </span>
+              <Bell size={16} />
             </button>
 
             {/* User Profile */}
-            <div className="flex items-center gap-space-sm pl-space-xs">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center relative">
-                <Icon name="person" className="text-on-primary" size={18} />
-                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-secondary"></span>
+            <div className="flex items-center gap-2 pl-1 border-l border-[#27272A]">
+              <div className="w-7 h-7 rounded-full bg-[#171717] border border-[#3F3F46] flex items-center justify-center text-xs font-mono font-medium text-[#22D3EE]">
+                FE
               </div>
               <div className="hidden xl:flex flex-col text-left">
-                <span className="font-label-sm text-label-sm text-on-surface font-semibold leading-none">
+                <span className="text-[12px] font-medium text-[#FAFAFA] leading-tight">
                   FE
                 </span>
-                <span className="font-label-sm text-[10px] text-outline font-mono leading-none mt-1">
+                <span className="text-[10px] text-[#71717A] leading-tight">
                   Principal SRE
                 </span>
               </div>
@@ -191,8 +212,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page Container */}
-        <main className="w-full pt-14 px-gutter md:px-gutter-desktop pb-space-xl bg-surface-container-lowest min-h-screen">
+        {/* Page Content Body */}
+        <main className="flex-1 mt-14 p-4 md:p-6 max-w-7xl w-full mx-auto">
           {children}
         </main>
       </div>

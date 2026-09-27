@@ -2,7 +2,22 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Icon } from "@/components/Icon";
+import {
+  Zap,
+  CheckCircle2,
+  RefreshCw,
+  SlidersHorizontal,
+  Server,
+  Terminal,
+  Activity,
+  ArrowRight,
+  Shield,
+  Layers,
+  FileCode,
+  Copy,
+  ExternalLink,
+  Brain,
+} from "lucide-react";
 import { simulationScenarios } from "@/lib/mock-data";
 import { SimulationScenario, Severity } from "@/types";
 import { createSimulatedIncident } from "@/lib/incident-store";
@@ -15,24 +30,8 @@ export default function SimulatorPage() {
   const [targetService, setTargetService] = useState(
     simulationScenarios[0].targetService
   );
-  const [severity, setSeverity] = useState(
-    simulationScenarios[0].severity === "High"
-      ? "High (P1 - Revenue Impacting)"
-      : "Critical (P0 - Hard Outage)"
-  );
-  const [region, setRegion] = useState(simulationScenarios[0].region);
-  const [injectionWindow, setInjectionWindow] = useState(
-    simulationScenarios[0].injectionWindow
-  );
-  const [incidentBrief, setIncidentBrief] = useState(
-    simulationScenarios[0].incidentBrief
-  );
-  const [modifiers, setModifiers] = useState({
-    latency: true,
-    mockFeedback: true,
-    triggerPagerDuty: true,
-  });
-
+  const [severity, setSeverity] = useState("High (P1)");
+  const [simDuration, setSimDuration] = useState("15 min (Auto-revert)");
   const [simulating, setSimulating] = useState(false);
   const [createdIncidentId, setCreatedIncidentId] = useState<string | null>(null);
 
@@ -41,31 +40,25 @@ export default function SimulatorPage() {
     setTargetService(scenario.targetService);
     setSeverity(
       scenario.severity === "Critical"
-        ? "Critical (P0 - Hard Outage)"
+        ? "Critical (P0)"
         : scenario.severity === "High"
-        ? "High (P1 - Revenue Impacting)"
-        : "Medium (P2 - Service Degraded)"
+        ? "High (P1)"
+        : "Medium (P2)"
     );
-    setRegion(scenario.region);
-    setInjectionWindow(scenario.injectionWindow);
-    setIncidentBrief(scenario.incidentBrief);
-    setModifiers(scenario.activeModifiers);
   };
 
   const handleStartSimulation = () => {
     setSimulating(true);
 
-    // Parse severity
     let parsedSeverity: Severity = "High";
-    if (severity.toLowerCase().includes("critical") || severity.toLowerCase().includes("p0")) {
+    if (severity.includes("P0") || severity.includes("Critical")) {
       parsedSeverity = "Critical";
-    } else if (severity.toLowerCase().includes("medium") || severity.toLowerCase().includes("p2")) {
+    } else if (severity.includes("P2") || severity.includes("Medium")) {
       parsedSeverity = "Medium";
-    } else if (severity.toLowerCase().includes("low") || severity.toLowerCase().includes("p3")) {
+    } else if (severity.includes("P3") || severity.includes("Low")) {
       parsedSeverity = "Low";
     }
 
-    // Determine fault signature based on scenario
     let runtimeFaultSignature = {
       code: selectedScenario.errorSignature,
       stackTrace: `Exception in ${targetService}: ${selectedScenario.errorSignature}\n  at com.shopease.${targetService.toLowerCase().replace(/[^a-z0-9]/g, "")}.Main(Service.kt:84)`,
@@ -86,19 +79,60 @@ at com.shopease.checkout.api.CheckoutController.checkout(CheckoutController.kt:5
 Caused by: java.net.SocketTimeoutException: connect timed out [port:5432]
 at com.shopease.payment.db.HikariPoolManager.getConnection(HikariPoolManager.kt:142)`,
       };
+    } else if (selectedScenario.id === "db-failure") {
+      runtimeFaultSignature = {
+        code: "FATAL: 53300: sorry, too many clients already",
+        stackTrace: `org.postgresql.util.PSQLException: FATAL: 53300: remaining connection slots are reserved for non-replication superuser connections
+at org.postgresql.core.v3.ConnectionFactoryImpl.doAuthentication(ConnectionFactoryImpl.java:682)
+at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnect(ConnectionFactoryImpl.java:184)`,
+      };
+    } else if (selectedScenario.id === "redis-exhaustion") {
+      runtimeFaultSignature = {
+        code: "OOM command not allowed when used memory > 'maxmemory'",
+        stackTrace: `redis.clients.jedis.exceptions.JedisDataException: OOM command not allowed when used memory > 'maxmemory'
+at redis.clients.jedis.Protocol.processError(Protocol.java:132)
+at redis.clients.jedis.Jedis.setex(Jedis.java:422)
+at com.shopease.cache.RedisClient.put(RedisClient.kt:98)`,
+      };
+    } else if (selectedScenario.id === "order-500") {
+      runtimeFaultSignature = {
+        code: "HTTP 500 INTERNAL ORDER STATE FAILURE",
+        stackTrace: `com.shopease.order.exception.OrderWorkflowDeadlockException: Lock wait timeout exceeded; try restarting transaction
+at com.shopease.order.statemachine.OrderStateMachine.transition(OrderStateMachine.kt:114)
+at com.shopease.order.service.OrderExecutionEngine.reserveInventory(OrderExecutionEngine.kt:62)`,
+      };
+    } else if (selectedScenario.id === "auth-failure") {
+      runtimeFaultSignature = {
+        code: "HTTP 401 SIGNATURE_VERIFICATION_FAILED",
+        stackTrace: `com.auth0.jwt.exceptions.SignatureVerificationException: The Token's Signature resulted invalid when verified with public key
+at com.shopease.auth.filter.JwtVerificationFilter.doFilter(JwtVerificationFilter.kt:76)
+at com.shopease.auth.gateway.SecurityContextManager.authenticate(SecurityContextManager.kt:42)`,
+      };
+    } else if (selectedScenario.id === "search-latency") {
+      runtimeFaultSignature = {
+        code: "SEARCH_QUERY_TIMEOUT_EXCEEDED",
+        stackTrace: `org.elasticsearch.action.search.SearchPhaseExecutionException: all shards failed for wildcard query
+at org.elasticsearch.search.SearchService.execute(SearchService.java:312)
+at com.shopease.search.client.ElasticsearchGateway.query(ElasticsearchGateway.kt:89)`,
+      };
+    } else if (selectedScenario.id === "custom") {
+      runtimeFaultSignature = {
+        code: "CUSTOM_CHAOS_INJECTION_FAULT",
+        stackTrace: `com.shopease.chaos.SimulatedChaosFault: Container fault injected via ShopEase Chaos Engine
+at com.shopease.chaos.ChaosInterceptor.inject(ChaosInterceptor.kt:33)`,
+      };
     }
 
-    // Create real structured incident in shared store
     const newIncident = createSimulatedIncident({
       title: selectedScenario.title,
       service: targetService,
       severity: parsedSeverity,
       error: selectedScenario.errorSignature,
-      details: incidentBrief || selectedScenario.description,
+      details: selectedScenario.description,
       runtimeFaultSignature,
       recentDeployment: {
         profile: `${targetService.toLowerCase().replace(/[^a-z0-9]/g, "-")}-v2`,
-        cluster: region.toLowerCase().replace(/[^a-z0-9]/g, "-"),
+        cluster: "us-east-1",
         timeAgo: "12m ago",
         author: "release-bot (ArgoCD Pipeline #9482)",
         commit: "Commit 8f4e901",
@@ -109,574 +143,366 @@ at com.shopease.payment.db.HikariPoolManager.getConnection(HikariPoolManager.kt:
 
     setTimeout(() => {
       setSimulating(false);
-      setTimeout(() => {
-        // Navigate directly to the newly simulated incident investigation
-        router.push(`/incidents/${newIncident.id}`);
-      }, 700);
-    }, 1100);
-  };
-
-  const handleReset = () => {
-    handleSelectScenario(simulationScenarios[0]);
+      router.push(`/incidents/${newIncident.id}`);
+    }, 900);
   };
 
   return (
-    <div className="flex flex-col w-full space-y-gutter-desktop">
+    <div className="flex flex-col gap-6 w-full">
       {/* Toast Notification */}
       {createdIncidentId && (
-        <div className="fixed top-18 right-8 z-50 flex items-center gap-space-sm p-space-md rounded-xl bg-surface-container-high border border-secondary/50 text-secondary shadow-[0_0_20px_rgba(93,230,255,0.3)] animate-bounce">
-          <Icon name="verified" size={20} className="text-secondary" />
-          <div className="flex flex-col">
-            <span className="font-headline-sm text-headline-sm font-bold text-on-surface">
-              Chaos Injection Initiated ({createdIncidentId})
-            </span>
-            <span className="font-label-sm text-label-sm font-mono text-secondary">
+        <div className="fixed top-18 right-8 z-50 flex items-center gap-3 p-4 rounded-xl bg-[#111111] border border-[#3B82F6] text-[#FAFAFA] shadow-xl">
+          <CheckCircle2 size={18} className="text-[#3B82F6]" />
+          <div>
+            <div className="text-xs font-semibold text-[#FAFAFA]">
+              Incident Triggered ({createdIncidentId})
+            </div>
+            <div className="text-[11px] font-mono text-[#A1A1AA]">
               Routing to RecallOps Agent Investigation Console...
-            </span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Top Informative Banner */}
-      <div className="relative overflow-hidden rounded-xl bg-surface-container-low p-space-lg shadow-md border border-[#1F2A37]/50">
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-secondary/10 blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-space-md">
-          <div className="flex items-center gap-space-md">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-container-high text-secondary shadow-sm border border-[#1F2A37]/60">
-              <Icon name="science" size={24} />
-            </div>
-            <div>
-              <div className="flex items-center gap-space-sm mb-0.5">
-                <span className="font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-surface-container-highest text-secondary uppercase tracking-wider font-mono">
-                  Sim-Engine v4.2
-                </span>
-                <span className="font-label-sm text-label-sm text-outline font-mono">
-                  • Target: ShopEase Production Mirror
-                </span>
-              </div>
-              <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-                Simulate Incident
-              </h1>
-              <p className="font-body-md text-body-md text-on-surface-variant">
-                Create a deterministic or randomized production outage to
-                evaluate RecallOps AI automated diagnostic and runbook recall
-                capabilities.
-              </p>
-            </div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-xl md:text-2xl font-semibold text-[#FAFAFA] tracking-tight">
+              Incident Simulator
+            </h1>
+            <span className="flex items-center gap-1.5 text-[10px] font-mono text-[#22C55E] bg-[#22C55E]/10 border border-[#22C55E]/30 px-2 py-0.5 rounded">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E] animate-pulse"></span>
+              <span>SANDBOX REPLICA : ACTIVE (V2.14-SIM)</span>
+            </span>
           </div>
-          <div className="flex items-center gap-space-md self-start md:self-auto shrink-0 bg-surface-container-lowest px-space-md py-space-sm rounded-lg shadow-inner border border-[#1F2A37]/50">
-            <div className="flex flex-col text-right">
-              <span className="font-label-sm text-label-sm text-outline font-mono">
-                SANDBOX CLUSTER
-              </span>
-              <span className="font-label-md text-label-md text-secondary font-mono">
-                us-east-1-chaos-04
-              </span>
-            </div>
-            <div className="h-6 w-px bg-surface-container-highest"></div>
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary"></span>
-              </span>
-              <span className="font-label-sm text-label-sm text-on-surface font-mono font-medium">
-                RECEPTIVE
-              </span>
-            </div>
-          </div>
+          <p className="text-xs md:text-sm text-[#A1A1AA]">
+            Safely test RecallOps detection, automated investigation, and organizational memory recall in staging.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111111] border border-[#27272A] hover:bg-[#171717] text-xs font-mono text-[#D4D4D8] transition-colors">
+            <SlidersHorizontal size={13} className="text-[#A1A1AA]" />
+            <span>Engine Preset: Deterministic Triage Replay</span>
+          </button>
         </div>
       </div>
 
-      {/* Section 1: Scenario Templates */}
-      <div className="flex flex-col space-y-space-md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-space-sm">
-            <span className="font-label-sm text-label-sm uppercase tracking-widest text-secondary font-mono font-bold">
-              01 // PRE-CONFIGURED CHAOS VECTORS
-            </span>
-            <span className="text-outline font-label-sm text-label-sm font-mono">
-              ({simulationScenarios.length} Templates Available)
-            </span>
-          </div>
-          <div className="flex items-center gap-2 font-label-sm text-label-sm text-outline font-mono">
-            <Icon name="auto_fix_high" size={16} className="text-primary" />
-            Deterministic Chaos Injection Protocol
-          </div>
+      {/* Stepper Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-1.5 rounded-xl bg-[#111111] border border-[#27272A] text-xs">
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#171717] border border-[#27272A] text-[#FAFAFA] font-medium">
+          <span className="w-5 h-5 rounded-full bg-[#3B82F6] text-white flex items-center justify-center text-[11px] font-bold">
+            1
+          </span>
+          <span>Select Incident Scenario</span>
         </div>
+        <div className="flex items-center gap-2.5 px-3 py-2 text-[#71717A]">
+          <span className="w-5 h-5 rounded-full bg-[#171717] border border-[#27272A] text-[#71717A] flex items-center justify-center text-[11px] font-mono">
+            2
+          </span>
+          <span>Target & Scope</span>
+        </div>
+        <div className="flex items-center gap-2.5 px-3 py-2 text-[#71717A]">
+          <span className="w-5 h-5 rounded-full bg-[#171717] border border-[#27272A] text-[#71717A] flex items-center justify-center text-[11px] font-mono">
+            3
+          </span>
+          <span>Trigger & Observe</span>
+        </div>
+      </div>
 
-        {/* 8 Template Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
-          {simulationScenarios.map((scenario) => {
-            const isSelected = selectedScenario.id === scenario.id;
-            const isCriticalOrHigh =
-              scenario.severity === "Critical" || scenario.severity === "High";
+      {/* Main 2-Column Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column (Scenario Library) */}
+        <div className="lg:col-span-7 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-[#FAFAFA]">
+                Scenario Library
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#171717] border border-[#27272A] text-[#A1A1AA]">
+                8 TEMPLATES
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-[#71717A] font-mono">
+              <span>Sort:</span>
+              <span className="text-[#D4D4D8]">Severity</span>
+            </div>
+          </div>
 
-            return (
-              <div
-                key={scenario.id}
-                onClick={() => handleSelectScenario(scenario)}
-                className={`scenario-card group relative flex flex-col justify-between p-space-md rounded-xl cursor-pointer transition-all duration-200 border ${
-                  isSelected
-                    ? "bg-surface-container-high border-secondary/50 shadow-[0_0_16px_-2px_rgba(93,230,255,0.25)]"
-                    : "bg-surface-container-low hover:bg-surface-container border-[#1F2A37]/50 shadow-sm"
-                }`}
-              >
-                {isSelected && (
-                  <div className="absolute inset-x-0 -top-px h-0.5 bg-gradient-to-r from-transparent via-secondary to-transparent"></div>
-                )}
-                <div>
-                  <div className="flex items-start justify-between gap-space-xs mb-space-sm">
-                    <div className="flex items-center gap-space-xs">
-                      <Icon
-                        name={scenario.icon}
-                        size={18}
-                        className={isSelected ? "text-secondary" : "text-primary"}
-                      />
-                      <span className="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors">
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {simulationScenarios.map((scenario) => {
+              const isSelected = selectedScenario.id === scenario.id;
+              const isP1 = scenario.severity === "Critical" || scenario.severity === "High";
+
+              return (
+                <div
+                  key={scenario.id}
+                  onClick={() => handleSelectScenario(scenario)}
+                  className={`p-3.5 rounded-xl cursor-pointer transition-all flex flex-col justify-between gap-3 text-left ${
+                    isSelected
+                      ? "bg-[#1C1C1C] border-2 border-[#3B82F6] shadow-md"
+                      : "bg-[#111111] border border-[#27272A] hover:bg-[#171717] hover:border-[#3F3F46]"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="text-xs font-semibold text-[#FAFAFA]">
                         {scenario.title}
                       </span>
-                    </div>
-                    {isSelected && (
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-secondary text-surface-container-lowest">
-                        <Icon name="check" size={12} className="font-bold text-black" />
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                          scenario.severity === "Critical"
+                            ? "bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/30"
+                            : isP1
+                            ? "bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30"
+                            : "bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30"
+                        }`}
+                      >
+                        {scenario.severity === "Critical" ? "Critical" : isP1 ? "High Sev / P1" : "Med Sev"}
                       </span>
-                    )}
+                    </div>
+
+                    <div className="text-[10px] font-mono text-[#71717A] truncate mb-2">
+                      {scenario.targetService.toLowerCase()}.shopease.internal
+                    </div>
+
+                    <p className="text-[11px] text-[#A1A1AA] line-clamp-2 leading-relaxed">
+                      {scenario.description}
+                    </p>
                   </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md leading-relaxed">
-                    {scenario.description}
-                  </p>
+
+                  <div className="pt-2 border-t border-[#27272A] flex items-center justify-between text-[10px] font-mono">
+                    <div className="flex items-center gap-1 text-[#22C55E]">
+                      <CheckCircle2 size={12} />
+                      <span>Prior Postmortem Linked</span>
+                    </div>
+                    <span className="text-[#22D3EE]">
+                      Vector: {scenario.id === "checkout-503" ? "96%" : scenario.id === "payment-timeout" ? "94%" : scenario.id === "db-failure" ? "89%" : "82%"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-space-xs">
-                  <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-lowest text-primary font-mono border border-[#1F2A37]/30">
-                    {scenario.service}
-                  </span>
-                  <span
-                    className={`font-label-sm text-label-sm px-1.5 py-0.5 rounded font-mono ${
-                      isCriticalOrHigh
-                        ? "bg-error-container text-error"
-                        : "bg-surface-container-highest text-secondary"
-                    }`}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Column (Target & Scope + Trigger) */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          {/* Target & Scope */}
+          <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#FAFAFA]">Target & Scope</span>
+              <span className="font-mono text-[10px] text-[#71717A]">
+                STAGING-US-EAST
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2.5">
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1 block">
+                  TARGET MICROSERVICE
+                </label>
+                <input
+                  type="text"
+                  value={`${targetService} (Active Replica)`}
+                  onChange={(e) => setTargetService(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg bg-[#080808] border border-[#27272A] text-xs text-[#FAFAFA] font-mono focus:outline-none focus:border-[#3F3F46]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1 block">
+                    SEVERITY LEVEL
+                  </label>
+                  <select
+                    value={severity}
+                    onChange={(e) => setSeverity(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#080808] border border-[#27272A] text-xs text-[#FAFAFA] font-mono focus:outline-none focus:border-[#3F3F46]"
                   >
-                    {scenario.severity}
-                  </span>
-                  <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-lowest text-outline font-mono border border-[#1F2A37]/30">
-                    {scenario.badgeTag}
-                  </span>
+                    <option value="Critical (P0)">Critical (P0)</option>
+                    <option value="High (P1)">High (P1)</option>
+                    <option value="Medium (P2)">Medium (P2)</option>
+                  </select>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
 
-      {/* Sections 2 & 3: Asymmetric Split Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
-        {/* Section 2: Scenario Parameters & Blast Radius (7 cols) */}
-        <div className="xl:col-span-7 flex flex-col rounded-xl bg-surface-container p-space-lg shadow-md space-y-space-lg border border-[#1F2A37]/50">
-          <div className="flex items-center justify-between pb-space-sm border-b border-surface-container-high/50">
-            <div className="flex items-center gap-space-sm">
-              <Icon name="tune" size={20} className="text-primary" />
-              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
-                Scenario Parameters & Blast Radius
-              </h2>
-            </div>
-            <span className="font-label-sm text-label-sm px-space-xs py-0.5 rounded bg-surface-container-lowest text-outline font-mono border border-[#1F2A37]/30">
-              INJECTOR-CONF-A
-            </span>
-          </div>
-
-          {/* Form Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-md">
-            {/* Service Target */}
-            <div className="flex flex-col space-y-space-xs">
-              <label className="font-label-md text-label-md text-on-surface-variant flex items-center justify-between">
-                <span>Target Service</span>
-                <span className="text-secondary text-[11px] font-mono">
-                  {selectedScenario.service}
-                </span>
-              </label>
-              <select
-                value={targetService}
-                onChange={(e) => setTargetService(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-[#1F2A37] rounded-lg px-space-md py-2 text-on-surface font-body-md text-body-md focus:border-secondary focus:outline-none"
-              >
-                <option value="Checkout (API Gateway)">
-                  Checkout (API Gateway)
-                </option>
-                <option value="Payment Service">Payment Service</option>
-                <option value="Database (Primary PostgreSQL)">
-                  Database (Primary PostgreSQL)
-                </option>
-                <option value="Redis Cache Cluster">Redis Cache Cluster</option>
-                <option value="Order Service">Order Service</option>
-                <option value="Authentication Service">
-                  Authentication Service
-                </option>
-                <option value="Search & Catalog Service">
-                  Search & Catalog Service
-                </option>
-              </select>
-            </div>
-
-            {/* Simulated Severity */}
-            <div className="flex flex-col space-y-space-xs">
-              <label className="font-label-md text-label-md text-on-surface-variant flex items-center justify-between">
-                <span>Simulated Severity</span>
-                <span className="text-error text-[11px] font-mono">
-                  PagerDuty Priority
-                </span>
-              </label>
-              <select
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-[#1F2A37] rounded-lg px-space-md py-2 text-on-surface font-body-md text-body-md focus:border-secondary focus:outline-none"
-              >
-                <option value="Critical (P0 - Hard Outage)">
-                  Critical (P0 - Hard Outage)
-                </option>
-                <option value="High (P1 - Revenue Impacting)">
-                  High (P1 - Revenue Impacting)
-                </option>
-                <option value="Medium (P2 - Service Degraded)">
-                  Medium (P2 - Service Degraded)
-                </option>
-                <option value="Low (P3 - Informational)">
-                  Low (P3 - Informational)
-                </option>
-              </select>
-            </div>
-
-            {/* Availability Region */}
-            <div className="flex flex-col space-y-space-xs">
-              <label className="font-label-md text-label-md text-on-surface-variant flex items-center justify-between">
-                <span>Availability Region</span>
-                <span className="text-outline text-[11px] font-mono">AWS VPC</span>
-              </label>
-              <select
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-[#1F2A37] rounded-lg px-space-md py-2 text-on-surface font-body-md text-body-md focus:border-secondary focus:outline-none"
-              >
-                <option value="US-East (Primary VPC)">
-                  US-East (Primary VPC)
-                </option>
-                <option value="US-West (Replica VPC)">
-                  US-West (Replica VPC)
-                </option>
-                <option value="EU-Central (Frankfurt)">
-                  EU-Central (Frankfurt)
-                </option>
-              </select>
-            </div>
-
-            {/* Injection Window */}
-            <div className="flex flex-col space-y-space-xs">
-              <label className="font-label-md text-label-md text-on-surface-variant flex items-center justify-between">
-                <span>Injection Window</span>
-                <span className="text-secondary text-[11px] font-mono">
-                  Auto-Rollback
-                </span>
-              </label>
-              <select
-                value={injectionWindow}
-                onChange={(e) => setInjectionWindow(e.target.value)}
-                className="w-full bg-surface-container-lowest border border-[#1F2A37] rounded-lg px-space-md py-2 text-on-surface font-body-md text-body-md focus:border-secondary focus:outline-none"
-              >
-                <option value="15 minutes (Quick Spike)">
-                  15 minutes (Quick Spike)
-                </option>
-                <option value="30 minutes (Standard Drill)">
-                  30 minutes (Standard Drill)
-                </option>
-                <option value="60 minutes (Extended Stress)">
-                  60 minutes (Extended Stress)
-                </option>
-              </select>
-            </div>
-          </div>
-
-          {/* Incident Brief Textarea */}
-          <div className="flex flex-col space-y-space-xs">
-            <div className="flex items-center justify-between">
-              <label className="font-label-md text-label-md text-on-surface-variant">
-                Incident Brief & Synthetic Telemetry Log Injection
-              </label>
-              <span className="font-label-sm text-[11px] text-outline font-mono">
-                {incidentBrief.length}/500 Chars
-              </span>
-            </div>
-            <textarea
-              rows={3}
-              value={incidentBrief}
-              onChange={(e) => setIncidentBrief(e.target.value)}
-              className="w-full bg-surface-container-lowest border border-[#1F2A37] rounded-lg p-space-md text-on-surface font-code-inline text-code-inline font-mono focus:border-secondary focus:outline-none resize-none leading-relaxed"
-            />
-          </div>
-
-          {/* Active Chaos Modifiers */}
-          <div className="flex flex-col space-y-space-xs pt-1">
-            <span className="font-label-sm text-label-sm uppercase tracking-wider text-outline font-mono">
-              Active Chaos Modifiers
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-space-sm">
-              <label className="flex items-center justify-between p-space-md rounded-lg bg-surface-container-low border border-[#1F2A37]/50 cursor-pointer hover:bg-surface-container-high transition-colors">
                 <div>
-                  <div className="font-headline-sm text-headline-sm text-on-surface">
-                    Inject Latency
-                  </div>
-                  <div className="font-label-sm text-[10px] text-secondary font-mono">
-                    +2,200ms jitter
-                  </div>
+                  <label className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1 block">
+                    SIM DURATION
+                  </label>
+                  <select
+                    value={simDuration}
+                    onChange={(e) => setSimDuration(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-[#080808] border border-[#27272A] text-xs text-[#FAFAFA] font-mono focus:outline-none focus:border-[#3F3F46]"
+                  >
+                    <option value="15 min (Auto-revert)">15 min (Auto-revert)</option>
+                    <option value="30 min">30 min</option>
+                    <option value="Indefinite (Manual stop)">Indefinite</option>
+                  </select>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={modifiers.latency}
-                  onChange={(e) =>
-                    setModifiers({ ...modifiers, latency: e.target.checked })
-                  }
-                  className="rounded text-secondary focus:ring-0 bg-surface-container-lowest h-4 w-4 border-[#1F2A37]"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-space-md rounded-lg bg-surface-container-low border border-[#1F2A37]/50 cursor-pointer hover:bg-surface-container-high transition-colors">
-                <div>
-                  <div className="font-headline-sm text-headline-sm text-on-surface">
-                    Mock Feedback
-                  </div>
-                  <div className="font-label-sm text-[10px] text-secondary font-mono">
-                    Synthetic Zendesk
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={modifiers.mockFeedback}
-                  onChange={(e) =>
-                    setModifiers({
-                      ...modifiers,
-                      mockFeedback: e.target.checked,
-                    })
-                  }
-                  className="rounded text-secondary focus:ring-0 bg-surface-container-lowest h-4 w-4 border-[#1F2A37]"
-                />
-              </label>
-
-              <label className="flex items-center justify-between p-space-md rounded-lg bg-surface-container-low border border-[#1F2A37]/50 cursor-pointer hover:bg-surface-container-high transition-colors">
-                <div>
-                  <div className="font-headline-sm text-headline-sm text-on-surface">
-                    Trigger PagerDuty
-                  </div>
-                  <div className="font-label-sm text-[10px] text-secondary font-mono">
-                    Sandbox Escalation
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={modifiers.triggerPagerDuty}
-                  onChange={(e) =>
-                    setModifiers({
-                      ...modifiers,
-                      triggerPagerDuty: e.target.checked,
-                    })
-                  }
-                  className="rounded text-secondary focus:ring-0 bg-surface-container-lowest h-4 w-4 border-[#1F2A37]"
-                />
-              </label>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 3: Live Impact Blueprint (5 cols) */}
-        <div className="xl:col-span-5 flex flex-col rounded-xl bg-surface-container-low p-space-lg shadow-md space-y-space-md border border-[#1F2A37]/50">
-          <div className="flex items-center justify-between pb-space-xs border-b border-surface-container-high/40">
-            <div className="flex items-center gap-space-xs">
-              <Icon name="travel_explore" size={18} className="text-secondary" />
-              <h2 className="font-headline-md text-headline-md text-on-surface font-semibold">
-                Live Impact Blueprint
-              </h2>
-            </div>
-            <span className="font-label-sm text-label-sm text-secondary font-mono flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-secondary"></span>
-              ESTIMATED TELEMETRY
-            </span>
-          </div>
-
-          {/* Blueprint Card */}
-          <div className="p-space-md rounded-lg bg-surface-container-lowest flex flex-col space-y-space-sm border border-[#1F2A37]/60">
-            <div className="flex items-center justify-between">
-              <span className="font-label-sm text-[10px] text-outline font-mono">
-                VECTOR SIGNATURE:
-              </span>
-              <span className="font-label-sm text-label-sm text-secondary font-mono">
-                {selectedScenario.liveImpact.vectorSignature}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-headline-md text-headline-md text-on-surface font-bold">
-                {selectedScenario.title}
-              </span>
-              <span className="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-error-container text-error font-mono font-bold">
-                SEV-1 HIGH
-              </span>
-            </div>
-            <div className="flex items-center justify-between font-label-sm text-label-sm text-outline font-mono">
-              <span>Target: {selectedScenario.liveImpact.target}</span>
-              <span>Cluster: {selectedScenario.liveImpact.cluster}</span>
-            </div>
-
-            {/* Error Frequency Chart */}
-            <div className="pt-space-xs">
-              <div className="flex items-center justify-between font-label-sm text-[10px] text-outline font-mono mb-1">
-                <span>PROJECTED ERROR FREQUENCY</span>
-                <span className="text-error font-bold">
-                  {selectedScenario.liveImpact.peakErrorFrequency}
-                </span>
               </div>
-              <div className="h-16 w-full bg-surface-container-low rounded-lg p-2 flex items-end relative overflow-hidden border border-[#1F2A37]/40">
-                <svg
-                  className="w-full h-full overflow-visible"
-                  viewBox="0 0 100 40"
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient
-                      id="simImpactGrad"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#5de6ff" stopOpacity="0.4" />
-                      <stop
-                        offset="100%"
-                        stopColor="#5de6ff"
-                        stopOpacity="0.0"
-                      />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M 0 35 Q 25 32, 45 20 T 75 8 T 100 5 L 100 40 L 0 40 Z"
-                    fill="url(#simImpactGrad)"
-                  />
-                  <path
-                    d="M 0 35 Q 25 32, 45 20 T 75 8 T 100 5"
-                    fill="none"
-                    stroke="#5de6ff"
-                    strokeWidth="2"
-                  />
-                </svg>
-              </div>
-            </div>
 
-            {/* Projected System Degradation */}
-            <div className="pt-space-xs flex flex-col space-y-space-xs">
-              <span className="font-label-sm text-[10px] text-outline font-mono uppercase tracking-wider">
-                Projected System Degradation
-              </span>
-              <div className="flex flex-col gap-1.5 font-code-inline text-code-inline font-mono">
-                {selectedScenario.liveImpact.projectedDegradations.map(
-                  (deg, idx) => (
-                    <div
-                      key={idx}
-                      className="p-space-sm rounded bg-surface-container-low border border-[#1F2A37]/40 flex flex-col gap-0.5"
-                    >
-                      <div className="flex items-center gap-1.5 text-error font-semibold">
-                        <Icon
-                          name={deg.type === "error" ? "report_problem" : "warning"}
-                          size={14}
-                        />
-                        <span>{deg.title}</span>
-                      </div>
-                      <span className="text-outline text-[11px]">
-                        {deg.description}
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Historical Correlation */}
-            <div className="p-space-sm rounded bg-surface-container-low border border-[#1F2A37]/50 flex items-center justify-between">
-              <div className="flex items-center gap-space-xs">
-                <Icon name="history_toggle_off" size={16} className="text-primary" />
-                <div className="flex flex-col">
-                  <span className="font-label-sm text-[10px] text-outline font-mono">
-                    Historical Correlation
-                  </span>
-                  <span className="font-label-sm text-label-sm text-on-surface font-mono">
-                    Matches {selectedScenario.liveImpact.historicalCorrelation.matchId} ({selectedScenario.liveImpact.historicalCorrelation.matchDate})
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1 block">
+                  TARGET ENVIRONMENT
+                </label>
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#080808] border border-[#27272A] text-xs">
+                  <span className="text-[#D4D4D8]">ShopEase Staging Replica (Isolated VPC)</span>
+                  <span className="flex items-center gap-1 font-mono text-[10px] text-[#22C55E]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+                    <span>ACTIVE</span>
                   </span>
                 </div>
               </div>
-              <span className="font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-surface-container-highest text-secondary font-mono font-semibold">
-                {selectedScenario.liveImpact.historicalCorrelation.confidence}
+
+              <div>
+                <label className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1 block">
+                  SIMULATION INJECTION NOTE
+                </label>
+                <div className="p-2.5 rounded-lg bg-[#080808] border border-[#27272A] text-[11px] font-mono text-[#A1A1AA] leading-relaxed">
+                  {selectedScenario.description}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Trigger & Observe */}
+          <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#FAFAFA]">Trigger & Observe</span>
+              <span className="flex items-center gap-1 font-mono text-[10px] text-[#22C55E]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+                <span>STANDBY</span>
               </span>
+            </div>
+
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-[#080808] border border-[#27272A] text-[11px] text-[#A1A1AA]">
+              <Shield size={15} className="text-[#22D3EE] shrink-0 mt-0.5" />
+              <span>
+                <strong className="text-white">Safe Sandbox Active:</strong> Simulated traffic will trigger RecallOps AI agent without impacting real customers or production databases.
+              </span>
+            </div>
+
+            <button
+              onClick={handleStartSimulation}
+              disabled={simulating}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#3B82F6] hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
+            >
+              <Zap size={16} className="fill-current text-white" />
+              <span>{simulating ? "Injecting Fault Telemetry..." : "Trigger Incident"}</span>
+            </button>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                onClick={() => handleSelectScenario(simulationScenarios[0])}
+                className="py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-[#A1A1AA] hover:text-white transition-colors"
+              >
+                Reset to Default
+              </button>
+              <button
+                onClick={() => alert("Simulation spec copied to clipboard.")}
+                className="py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-[#A1A1AA] hover:text-white transition-colors"
+              >
+                Export Spec
+              </button>
+            </div>
+
+            <div className="flex justify-between items-center text-[10px] font-mono text-[#71717A] pt-2 border-t border-[#27272A]">
+              <span className="flex items-center gap-1 text-[#22C55E]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+                <span>Ready for dispatch</span>
+              </span>
+              <span>Target TTL: 15m</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Engine Armed Banner & Footer Actions */}
-      <div className="rounded-xl bg-surface-container-low p-space-md flex flex-col sm:flex-row items-center justify-between gap-space-md shadow-md border border-[#1F2A37]/50">
-        <div className="flex items-center gap-space-md">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-container-high text-secondary border border-[#1F2A37]/50">
-            <Icon name="shield" size={18} />
-          </div>
+      {/* Bottom Row (Prior Memory Match & Terminal Event Stream) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Prior Memory Match */}
+        <div className="lg:col-span-5 rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col justify-between gap-3">
           <div>
-            <div className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              Engine Armed • Safe Sandbox Isolator Active
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="font-semibold text-[#FAFAFA] flex items-center gap-1.5">
+                <Brain size={14} className="text-[#22D3EE]" />
+                <span>Prior Memory Match</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#22D3EE]/15 text-[#22D3EE] border border-[#22D3EE]/30">
+                96% Vector Similarity
+              </span>
             </div>
-            <p className="font-body-sm text-body-sm text-outline">
-              Ready to inject chaos into isolated ShopEase replica. RecallOps AI
-              agent will immediately spin up telemetry correlating agents upon
-              ignition.
-            </p>
+
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1">
+              HISTORICAL INCIDENT
+            </div>
+            <div className="text-xs text-[#FAFAFA] font-medium mb-3">
+              INC-2023-8841 (Black Friday Redis Pod Starvation)
+            </div>
+
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1">
+              PROVEN PLAYBOOK RECOMMENDED
+            </div>
+            <div className="text-xs font-mono text-[#3B82F6] flex items-center gap-1">
+              <FileCode size={13} />
+              <span>PLAYBOOK-REDIS-BUMP</span>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-[#27272A] flex items-center justify-between text-xs font-mono">
+            <span className="text-[#71717A]">Predicted MTTR:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[#22C55E] font-medium">8.5 min</span>
+              <span className="text-[10px] text-[#71717A]">(vs 48m baseline)</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30">
+                82% saved
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 font-label-sm text-label-sm text-outline font-mono">
-          <span className="h-2 w-2 rounded-full bg-secondary"></span>
-          <span>SANDBOX INTEGRITY VERIFIED</span>
-        </div>
-      </div>
 
-      {/* Action Trigger Buttons */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-space-md pt-space-xs pb-space-lg">
-        <div className="flex items-center gap-2 font-label-sm text-label-sm text-outline font-mono">
-          <Icon name="verified" size={16} className="text-secondary" />
-          <span>Simulated traffic does not touch external customer gateways</span>
-        </div>
+        {/* Simulator Event Stream */}
+        <div className="lg:col-span-7 rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 font-mono text-[#D4D4D8]">
+              <Terminal size={14} className="text-[#A1A1AA]" />
+              <span>SIMULATOR EVENT STREAM</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 font-mono text-[10px] text-[#22C55E]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
+                <span>agent-staging-04</span>
+              </span>
+              <button
+                onClick={() => {}}
+                className="text-[10px] font-mono text-[#71717A] hover:text-[#A1A1AA]"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-space-md w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex-1 sm:flex-none px-space-lg py-2.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-body-md text-body-md font-medium transition-colors border border-[#1F2A37]/50"
-          >
-            Reset Parameters
-          </button>
-
-          <button
-            type="button"
-            onClick={handleStartSimulation}
-            disabled={simulating}
-            className="flex-1 sm:flex-none px-space-xl py-2.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-headline-sm text-headline-sm font-semibold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.99] disabled:opacity-50"
-          >
-            {simulating ? (
-              <>
-                <Icon
-                  name="autorenew"
-                  size={18}
-                  className="animate-spin text-on-primary"
-                />
-                <span>Igniting Chaos Vector...</span>
-              </>
-            ) : (
-              <>
-                <Icon name="bolt" size={18} className="text-on-primary" />
-                <span>Start Simulation</span>
-              </>
-            )}
-          </button>
+          {/* Terminal Box */}
+          <div className="p-3 rounded-lg bg-[#080808] border border-[#27272A] font-mono text-[11px] text-[#A1A1AA] flex flex-col gap-1.5 min-h-[110px]">
+            <div>
+              <span className="text-[#71717A]">10:14:02.114</span>{" "}
+              <span className="text-[#3B82F6]">[SYSTEM]</span> Simulator agent heartbeat healthy on node worker-staging-04.
+            </div>
+            <div>
+              <span className="text-[#71717A]">10:14:02.890</span>{" "}
+              <span className="text-[#22D3EE]">[RECALL-OPS]</span> Loaded 1,420 organizational embeddings from vector store.
+            </div>
+            <div>
+              <span className="text-[#71717A]">10:14:03.011</span>{" "}
+              <span className="text-[#22C55E]">[READY]</span> Awaiting scenario execution trigger for {targetService.toLowerCase()}...
+            </div>
+            <div className="flex items-center gap-1 text-[#FAFAFA]">
+              <span>&gt;</span>
+              <span className="inline-block w-2 h-3.5 bg-[#3B82F6] animate-pulse"></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

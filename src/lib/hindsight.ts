@@ -158,6 +158,26 @@ ${incident.recentDeployment ? `Recent Deployment Correlation: ${incident.recentD
 }
 
 /**
+ * Executes a promise with an enforced timeout.
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operationName: string
+): Promise<T> {
+  let timeoutHandle: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(
+      () => reject(new Error(`${operationName} timed out after ${timeoutMs}ms`)),
+      timeoutMs
+    );
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutHandle);
+  });
+}
+
+/**
  * Recalls relevant memories from Hindsight using semantic & graph search.
  */
 export async function recallIncidentMemory(
@@ -166,9 +186,13 @@ export async function recallIncidentMemory(
 ): Promise<{ query: string; results: RecalledMemoryResult[] }> {
   const { client, bankId } = getHindsightClient();
 
-  const recallResponse = await client.recall(bankId, query, {
-    maxTokens: 2048,
-  });
+  const recallResponse = await withTimeout(
+    client.recall(bankId, query, {
+      maxTokens: 1536,
+    }),
+    8000,
+    "Hindsight Cloud recall"
+  );
 
   const results: RecalledMemoryResult[] = (recallResponse.results || [])
     .slice(0, limit)
