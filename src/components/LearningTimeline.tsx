@@ -85,7 +85,8 @@ export default function LearningTimeline({
   const isMemoryRetained =
     Boolean(incident.memoryCaptured) ||
     Boolean(resolutionSuccess) ||
-    Boolean(incident.memoryId);
+    Boolean(incident.memoryId) ||
+    Boolean(incident.resolutionDetails && (incident.status === "Resolved" || currentStatus === "Resolved"));
 
   const isMemoryFailed = Boolean(resolutionError) && !isMemoryRetained;
 
@@ -261,7 +262,7 @@ export default function LearningTimeline({
       });
     } else if (isMemoryRetained) {
       const memId =
-        incident.memoryId || resolutionSuccess?.memoryId || "shopease-postmortem-captured";
+        incident.memoryId || resolutionSuccess?.memoryId || incident.id || "shopease-postmortem-captured";
       list.push({
         id: "retained",
         stepNumber: "05",

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { memoryEntries } from "@/lib/mock-data";
 import { useIncidents } from "@/lib/incident-store";
+import { HISTORICAL_SHOP_EASE_INCIDENTS } from "@/lib/hindsight-seed";
 import { MemoryEntry } from "@/types";
 
 export default function MemoryDetailPage() {
@@ -27,6 +28,7 @@ export default function MemoryDetailPage() {
   const { incidents: storedIncidents } = useIncidents();
 
   const entry: MemoryEntry = useMemo(() => {
+    // 1. Check stored incidents in client memory
     const storedMatch = storedIncidents.find((i) => i.id === id);
     if (storedMatch) {
       let cat: "Payment" | "Database" | "Redis" | "Search" | "Authentication" | "Orders" = "Payment";
@@ -36,7 +38,7 @@ export default function MemoryDetailPage() {
       else if (s.includes("redis") || s.includes("cache")) cat = "Redis";
       else if (s.includes("search")) cat = "Search";
       else if (s.includes("auth")) cat = "Authentication";
-      else if (s.includes("order")) cat = "Orders";
+      else if (s.includes("order") || s.includes("check")) cat = "Orders";
 
       return {
         id: storedMatch.id,
@@ -68,7 +70,64 @@ export default function MemoryDetailPage() {
       };
     }
 
-    return memoryEntries.find((m) => m.id === id) || memoryEntries[0];
+    // 2. Check static memory catalogue
+    const staticMatch = memoryEntries.find((m) => m.id === id);
+    if (staticMatch) {
+      return staticMatch;
+    }
+
+    // 3. Check historical seed incidents
+    const seedMatch = HISTORICAL_SHOP_EASE_INCIDENTS.find((s) => s.id === id);
+    if (seedMatch) {
+      let cat: "Payment" | "Database" | "Redis" | "Search" | "Authentication" | "Orders" = "Payment";
+      const s = seedMatch.service.toLowerCase();
+      if (s.includes("pay")) cat = "Payment";
+      else if (s.includes("data") || s.includes("postgre")) cat = "Database";
+      else if (s.includes("redis") || s.includes("cache")) cat = "Redis";
+      else if (s.includes("search")) cat = "Search";
+      else if (s.includes("auth")) cat = "Authentication";
+      else if (s.includes("order") || s.includes("check")) cat = "Orders";
+
+      return {
+        id: seedMatch.id,
+        title: seedMatch.title,
+        service: seedMatch.service,
+        age: seedMatch.date ? `${seedMatch.date}` : "Historical",
+        similarity: "96%",
+        matchPercentage: "96% Match",
+        rootCause: seedMatch.rootCause,
+        resolution: seedMatch.successfulResolution,
+        failedAttempts: seedMatch.failedAttempts,
+        lesson: seedMatch.lessonsLearned,
+        relatedIncidents: ["INC-1001"],
+        usageCount: 2,
+        mttr: seedMatch.resolutionTime || "15 mins",
+        resolvedBy: "ShopEase SRE Team",
+        symptoms: seedMatch.symptoms || seedMatch.errorSignature,
+        category: cat,
+      };
+    }
+
+    // 4. Clean dynamic fallback strictly preserving the requested ID
+    return {
+      id,
+      title: `${id} — Production Incident Memory`,
+      service: "Checkout",
+      category: "Redis",
+      age: "Recently Retained",
+      similarity: "100%",
+      matchPercentage: "100% Match",
+      rootCause: "Redis connection pool exhaustion and distributed cart lock contention.",
+      resolution: "Elevated connection pool limit to 200 and applied distributed back-pressure runbook.",
+      failedAttempts: "Restarting services without pool reconfiguration exacerbated connection exhaustion.",
+      lesson: "Always verify backend resource headroom before executing rolling service restarts.",
+      relatedIncidents: ["INC-1001", "INC-1042"],
+      usageCount: 1,
+      mttr: "12 mins",
+      resolvedBy: "RecallOps Autonomous Agent",
+      symptoms: "HTTP 503 Service Unavailable, connection timeout under high concurrency.",
+      isNewMemory: true,
+    };
   }, [id, storedIncidents]);
 
   return (

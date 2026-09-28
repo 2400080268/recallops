@@ -210,7 +210,7 @@ export default function IncidentsListPage() {
                             AI Analyzed
                           </span>
                         )}
-                        {incident.memoryCaptured && (
+                        {(incident.memoryCaptured || (incident.status === "Resolved" && Boolean(incident.resolutionDetails))) && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30">
                             Memory Retained
                           </span>

@@ -80,6 +80,59 @@ export default function IncidentInvestigationPage() {
   const [resolutionSuccess, setResolutionSuccess] = useState<RetainPostMortemResult | null>(null);
   const [resolutionError, setResolutionError] = useState<string | null>(null);
 
+  // Rehydrate resolution & memory capture state on mount or when baseIncident changes
+  useEffect(() => {
+    if (
+      baseIncident?.memoryCaptured ||
+      (baseIncident?.status === "Resolved" && baseIncident?.resolutionDetails)
+    ) {
+      setResolutionSuccess((prev) => {
+        if (prev && prev.incidentId === baseIncident.id) {
+          return prev;
+        }
+        return {
+          success: true,
+          incidentId: baseIncident.id,
+          memoryCaptured: true,
+          memoryId: baseIncident.memoryId || baseIncident.id,
+          alreadyExists: true,
+          timestamp:
+            baseIncident.memoryCapturedAt ||
+            baseIncident.resolutionDetails?.resolvedAt ||
+            new Date().toISOString(),
+          bankId: "shopease-incidents",
+          postMortem: baseIncident.resolutionDetails?.summary || "",
+        };
+      });
+
+      // Self-heal storage if marked Resolved with resolutionDetails but missing memoryCaptured flag
+      if (!baseIncident.memoryCaptured) {
+        updateIncidentInStore(baseIncident.id, {
+          memoryCaptured: true,
+          memoryId: baseIncident.memoryId || baseIncident.id,
+          memoryCapturedAt:
+            baseIncident.memoryCapturedAt ||
+            baseIncident.resolutionDetails?.resolvedAt ||
+            new Date().toISOString(),
+        });
+      }
+    } else {
+      setResolutionSuccess((prev) => {
+        if (prev && prev.incidentId !== baseIncident?.id) {
+          return null;
+        }
+        return prev;
+      });
+    }
+  }, [
+    baseIncident?.id,
+    baseIncident?.status,
+    baseIncident?.memoryCaptured,
+    baseIncident?.resolutionDetails,
+    baseIncident?.memoryId,
+    baseIncident?.memoryCapturedAt,
+  ]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -248,7 +301,9 @@ export default function IncidentInvestigationPage() {
 
   // Open resolve modal
   const handleOpenResolveModal = () => {
-    setResolutionSuccess(null);
+    if (!baseIncident?.memoryCaptured && !(baseIncident?.status === "Resolved" && baseIncident?.resolutionDetails)) {
+      setResolutionSuccess(null);
+    }
     setResolutionError(null);
     setResolutionSummary(currentResolution || "Applied recommended remediation runbook and restored normal production operations.");
     setLessonsLearned(currentAntiPattern || "Configure proactive alerting thresholds and update runbook documentation in organizational memory.");
@@ -294,7 +349,11 @@ export default function IncidentInvestigationPage() {
           resolvedAt: data.timestamp || new Date().toISOString(),
         };
 
-        updateStatus(baseIncident.id, "Resolved", resDetails);
+        updateStatus(baseIncident.id, "Resolved", resDetails, {
+          memoryCaptured: true,
+          memoryId: data.memoryId || baseIncident.id,
+          memoryCapturedAt: data.timestamp || new Date().toISOString(),
+        });
         setCurrentStatus("Resolved");
         setResolutionSuccess(data);
         showToast(`Incident resolved & retained to Hindsight Cloud (${data.memoryId})`);
@@ -852,37 +911,62 @@ export default function IncidentInvestigationPage() {
           />
 
           {/* Box 4: Resolution & Memory Capture Footer */}
-          <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-7 h-7 rounded-lg bg-[#22C55E]/15 border border-[#22C55E]/30 flex items-center justify-center text-[#22C55E] shrink-0 mt-0.5">
-                <CheckCircle2 size={16} />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-[#FAFAFA]">
-                  Ready to resolve and record?
+          {currentStatus === "Resolved" ? (
+            <div className="rounded-xl bg-[#111111] border border-[#22C55E]/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-[#22C55E]/15 border border-[#22C55E]/30 flex items-center justify-center text-[#22C55E] shrink-0 mt-0.5">
+                  <CheckCircle2 size={16} />
                 </div>
-                <p className="text-xs text-[#71717A] mt-0.5">
-                  All verification steps passed. Resolution will persist this root cause vector to ShopEase Organizational Memory.
-                </p>
+                <div>
+                  <div className="text-xs font-semibold text-[#FAFAFA]">
+                    Incident Resolved & Retained in Memory
+                  </div>
+                  <p className="text-xs text-[#71717A] mt-0.5">
+                    Root cause and verified runbook indexed in Hindsight Cloud ({baseIncident.memoryId || resolutionSuccess?.memoryId || baseIncident.id}).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#22C55E]/10 border border-[#22C55E]/20 text-xs font-mono text-[#22C55E]">
+                  <CheckCircle2 size={13} />
+                  <span>Retained in shopease-incidents</span>
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-[#22C55E]/15 border border-[#22C55E]/30 flex items-center justify-center text-[#22C55E] shrink-0 mt-0.5">
+                  <CheckCircle2 size={16} />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-[#FAFAFA]">
+                    Ready to resolve and record?
+                  </div>
+                  <p className="text-xs text-[#71717A] mt-0.5">
+                    All verification steps passed. Resolution will persist this root cause vector to ShopEase Organizational Memory.
+                  </p>
+                </div>
+              </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                onClick={() => showToast("Incident flagged as false alarm")}
-                className="px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-xs font-medium text-[#A1A1AA] hover:text-white transition-colors"
-              >
-                Mark False Alarm
-              </button>
-              <button
-                onClick={handleOpenResolveModal}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#22C55E] hover:bg-emerald-600 text-xs font-semibold text-black transition-colors cursor-pointer shadow-sm"
-              >
-                <Check size={14} />
-                <span>Resolve Incident & Save to Memory</span>
-              </button>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  onClick={() => showToast("Incident flagged as false alarm")}
+                  className="px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-xs font-medium text-[#A1A1AA] hover:text-white transition-colors"
+                >
+                  Mark False Alarm
+                </button>
+                <button
+                  onClick={handleOpenResolveModal}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#22C55E] hover:bg-emerald-600 text-xs font-semibold text-black transition-colors cursor-pointer shadow-sm"
+                >
+                  <Check size={14} />
+                  <span>Resolve Incident & Save to Memory</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
