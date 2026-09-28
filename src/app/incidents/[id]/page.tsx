@@ -22,12 +22,15 @@ import {
   AlertCircle,
   Database,
   Terminal,
+  RefreshCw,
 } from "lucide-react";
 import { incidents, memoryEntries } from "@/lib/mock-data";
 import { AgentInvestigationResult } from "@/lib/agent";
 import { useIncidents, updateIncidentInStore } from "@/lib/incident-store";
 import { IncidentStatus } from "@/types";
 import { RetainPostMortemResult } from "@/lib/hindsight";
+import EvidenceChain, { isRecentlyLearnedEvidence } from "@/components/EvidenceChain";
+import LearningTimeline from "@/components/LearningTimeline";
 
 export default function IncidentInvestigationPage() {
   const params = useParams();
@@ -187,6 +190,16 @@ export default function IncidentInvestigationPage() {
 
   const isNovel = agentData?.analysis.isNovel ?? baseIncident.aiAnalysis?.isNovel ?? false;
   const hasContradictory = agentData?.analysis.hasContradictoryEvidence ?? baseIncident.aiAnalysis?.hasContradictoryEvidence ?? false;
+
+  const currentRecurringPattern = useMemo(() => {
+    if (agentData?.analysis.recurringPatterns && agentData.analysis.recurringPatterns.length > 0) {
+      return agentData.analysis.recurringPatterns[0];
+    }
+    if (baseIncident.aiAnalysis?.recurringPatterns && baseIncident.aiAnalysis.recurringPatterns.length > 0) {
+      return baseIncident.aiAnalysis.recurringPatterns[0];
+    }
+    return undefined;
+  }, [agentData, baseIncident]);
 
   const currentHistoricalEvidence = useMemo(() => {
     if (agentData && agentData.historicalEvidence.length > 0) {
@@ -391,11 +404,21 @@ export default function IncidentInvestigationPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto text-xs font-mono text-[#71717A]">
-          <span>Run triage script</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-[#111111] border border-[#27272A] text-[10px] text-[#A1A1AA]">
-            ⌘ + ⇧ + R
-          </kbd>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={handleInvestigate}
+            disabled={investigating}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#3B82F6] hover:bg-blue-600 text-white font-medium text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+          >
+            <Zap size={13} className="fill-current text-white" />
+            <span>
+              {investigating
+                ? "Agent Reasoning..."
+                : agentData
+                ? "Re-Run Investigation"
+                : "Investigate with RecallOps"}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -439,7 +462,7 @@ export default function IncidentInvestigationPage() {
                 RECALLOPS INVESTIGATION
               </span>
               <span className="text-xs text-[#71717A] font-mono">
-                Investigation complete • {currentDuration}
+                {investigating ? "AI agent correlating telemetry..." : `Investigation complete • ${currentDuration}`}
               </span>
             </div>
 
@@ -457,16 +480,14 @@ export default function IncidentInvestigationPage() {
                 </span>
               </div>
 
-              {!agentData && (
-                <button
-                  onClick={handleInvestigate}
-                  disabled={investigating}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#3B82F6] hover:bg-blue-600 text-xs font-semibold text-white transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Zap size={13} className="fill-current" />
-                  <span>{investigating ? "Investigating..." : "Re-Run Investigation"}</span>
-                </button>
-              )}
+              <button
+                onClick={handleInvestigate}
+                disabled={investigating}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#171717] hover:bg-[#1C1C1C] border border-[#27272A] text-xs font-semibold text-[#FAFAFA] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={investigating ? "animate-spin text-[#22D3EE]" : "text-[#A1A1AA]"} />
+                <span>{investigating ? "Investigating..." : "Re-Run"}</span>
+              </button>
             </div>
           </div>
 
@@ -560,27 +581,40 @@ export default function IncidentInvestigationPage() {
 
             {/* 3 Horizontal Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-              {currentHistoricalEvidence.slice(0, 3).map((item) => (
-                <div
-                  key={item.incidentId}
-                  className="rounded-lg bg-[#080808] border border-[#27272A] p-3.5 flex flex-col justify-between gap-3 text-left hover:border-[#3F3F46] transition-colors"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="font-mono text-xs font-semibold text-[#FAFAFA]">
-                        {item.incidentId}
-                      </span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#22D3EE]/15 text-[#22D3EE] border border-[#22D3EE]/30">
-                        {item.matchPercentage || "94% Match"}
-                      </span>
-                    </div>
+              {currentHistoricalEvidence.slice(0, 3).map((item) => {
+                const isRecent = isRecentlyLearnedEvidence(item);
+                return (
+                  <div
+                    key={item.incidentId}
+                    className={`rounded-lg bg-[#080808] border p-3.5 flex flex-col justify-between gap-3 text-left transition-colors ${
+                      isRecent
+                        ? "border-[#22D3EE]/40 hover:border-[#22D3EE]/60"
+                        : "border-[#27272A] hover:border-[#3F3F46]"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs font-semibold text-[#FAFAFA]">
+                            {item.incidentId}
+                          </span>
+                          {isRecent && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#22D3EE]/15 text-[#22D3EE] border border-[#22D3EE]/30 font-medium">
+                              RECENTLY LEARNED
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#22D3EE]/15 text-[#22D3EE] border border-[#22D3EE]/30">
+                          {item.matchPercentage || "94% Match"}
+                        </span>
+                      </div>
 
-                    <div className="text-xs font-semibold text-[#D4D4D8] mb-0.5">
-                      {item.title}
-                    </div>
-                    <div className="text-[10px] font-mono text-[#71717A] mb-2">
-                      {item.age || "Resolved historically"}
-                    </div>
+                      <div className="text-xs font-semibold text-[#D4D4D8] mb-0.5">
+                        {item.title}
+                      </div>
+                      <div className="text-[10px] font-mono text-[#71717A] mb-2">
+                        {isRecent ? "Recently retained to Hindsight" : item.age || "Resolved historically"}
+                      </div>
 
                     <div className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-0.5">
                       ROOT CAUSE
@@ -608,9 +642,20 @@ export default function IncidentInvestigationPage() {
                     <ExternalLink size={12} />
                   </Link>
                 </div>
-              ))}
+              );
+            })}
             </div>
           </div>
+
+          {/* Box 2.5: Evidence Chain / Why this recommendation? */}
+          <EvidenceChain
+            evidence={currentHistoricalEvidence}
+            isNovel={isNovel}
+            incidentService={baseIncident.service}
+            incidentError={baseIncident.error}
+            recurringPattern={currentRecurringPattern}
+            defaultExpanded={false}
+          />
 
           {/* Box 3: Recommended Remediation vs What to Avoid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -792,6 +837,20 @@ export default function IncidentInvestigationPage() {
             </div>
           </div>
 
+          {/* Learning Timeline: Organizational Memory Lifecycle */}
+          <LearningTimeline
+            incident={baseIncident}
+            agentData={agentData}
+            historicalEvidence={currentHistoricalEvidence}
+            isNovel={isNovel}
+            currentStatus={currentStatus}
+            resolutionSuccess={resolutionSuccess}
+            resolutionError={resolutionError}
+            storedIncidents={storedIncidents}
+            onOpenResolveModal={handleOpenResolveModal}
+            defaultExpanded={true}
+          />
+
           {/* Box 4: Resolution & Memory Capture Footer */}
           <div className="rounded-xl bg-[#111111] border border-[#27272A] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -871,6 +930,24 @@ export default function IncidentInvestigationPage() {
           <div>10:14:02.114 [WARN] HikariPool-1 - Connection acquisition threshold approaching limit (98/100)</div>
           <div>10:14:02.890 [ERROR] Connection acquisition timed out after 30004ms</div>
           <div>10:14:03.011 [FATAL] Client request dropped with HTTP 503 SERVICE UNAVAILABLE</div>
+        </div>
+      )}
+
+      {/* Timeline Tab Content */}
+      {activeTab === "timeline" && (
+        <div className="flex flex-col gap-4">
+          <LearningTimeline
+            incident={baseIncident}
+            agentData={agentData}
+            historicalEvidence={currentHistoricalEvidence}
+            isNovel={isNovel}
+            currentStatus={currentStatus}
+            resolutionSuccess={resolutionSuccess}
+            resolutionError={resolutionError}
+            storedIncidents={storedIncidents}
+            onOpenResolveModal={handleOpenResolveModal}
+            defaultExpanded={true}
+          />
         </div>
       )}
 

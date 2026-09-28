@@ -35,6 +35,9 @@ yarn-error.log*
 .env.local
 .env*
 
+# local Hindsight export backup
+/scripts/backup-hindsight-memories.json
+
 # vercel
 .vercel
 

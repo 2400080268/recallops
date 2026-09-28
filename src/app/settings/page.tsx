@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SlidersHorizontal,
   Brain,
@@ -39,6 +39,10 @@ export default function SettingsPage() {
 
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState<string | null>(null);
+
+  useEffect(() => {
+    handleTestHindsight();
+  }, []);
 
   const handleTestGroq = async () => {
     setTestingGroq(true);

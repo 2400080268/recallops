@@ -38,6 +38,7 @@ export interface HistoricalEvidenceItem {
   age?: string;
   score?: number | null;
   text?: string;
+  isRecentlyLearned?: boolean;
 }
 
 export interface RecommendedActionItem {
@@ -297,32 +298,46 @@ export function parsePrioritizedActions(
     }
   }
 
-  if (actions.length === 0) {
-    const validatedFix =
-      whatWorked[0]?.action || "Apply validated configuration profile in cluster configuration.";
-    actions.push(
-      {
-        step: 1,
-        title: "P0 — Verify Active Resource Saturation",
-        detail: "Inspect active thread and connection metrics to confirm saturation threshold.",
-        tag: "P0 Immediate",
-        tagType: "critical",
-      },
-      {
+  if (actions.length < 3) {
+    if (actions.length === 0) {
+      const validatedFix =
+        whatWorked[0]?.action || "Apply validated configuration profile in cluster configuration.";
+      actions.push(
+        {
+          step: 1,
+          title: "P0 — Verify Active Resource Saturation",
+          detail: "Inspect active thread and connection metrics to confirm saturation threshold.",
+          tag: "P0 Immediate",
+          tagType: "critical",
+        },
+        {
+          step: 2,
+          title: "P1 — Apply Validated Remediation Runbook",
+          detail: validatedFix,
+          tag: "P1 Validated Fix",
+          tagType: "info",
+        }
+      );
+    } else if (actions.length === 1) {
+      const validatedFix =
+        whatWorked[0]?.action || "Apply validated configuration patch to relieve resource contention.";
+      actions.push({
         step: 2,
         title: "P1 — Apply Validated Remediation Runbook",
         detail: validatedFix,
         tag: "P1 Validated Fix",
         tagType: "info",
-      },
-      {
+      });
+    }
+    if (actions.length === 2) {
+      actions.push({
         step: 3,
         title: "P2 — Monitor Latency Baseline and Error Rate",
         detail: "Confirm service error rate drops below 0.1% over a sustained 5-minute window.",
         tag: "P2 Observability",
         tagType: "success",
-      }
-    );
+      });
+    }
   }
 
   return actions;
@@ -913,7 +928,9 @@ Please investigate this incident. If historical organizational experience could 
     groqCallsCount++;
 
     const isSynthesisTurn = memorySearchCompleted;
-    const currentToolChoice = isSynthesisTurn ? ("none" as const) : ("auto" as const);
+    const currentToolChoice = isSynthesisTurn
+      ? ("none" as const)
+      : ({ type: "function" as const, function: { name: "search_incident_memory" } });
     const currentMaxTokens = isSynthesisTurn ? 800 : 256;
 
     let response;
@@ -994,6 +1011,7 @@ Please investigate this incident. If historical organizational experience could 
                 age,
                 score: r.score,
                 text: r.text,
+                isRecentlyLearned: docId === "INC-1099" || docId.startsWith("INC-11") || r.text.includes("September 28, 2026") || r.text.includes("Recently learned"),
               });
             }
           }
@@ -1034,6 +1052,7 @@ Please investigate this incident. If historical organizational experience could 
                 age: `Resolved on ${seed.date}`,
                 score: 0.92,
                 text: seed.symptoms,
+                isRecentlyLearned: seed.id === "INC-1099" || seed.id.startsWith("INC-11"),
               });
             }
           }
@@ -1046,11 +1065,25 @@ Please investigate this incident. If historical organizational experience could 
     const choice = response.choices[0];
     const message = choice.message;
 
-    // Check if the model decided to call a tool (only on non-synthesis turns)
-    if (!isSynthesisTurn && message.tool_calls && message.tool_calls.length > 0) {
-      messages.push(message);
+    // Check if on non-synthesis turn: execute memory tool call
+    if (!isSynthesisTurn) {
+      const toolCalls =
+        message.tool_calls && message.tool_calls.length > 0
+          ? message.tool_calls
+          : [
+              {
+                id: `call_mem_${Date.now()}`,
+                type: "function" as const,
+                function: {
+                  name: "search_incident_memory",
+                  arguments: JSON.stringify({ query: buildTargetedMemoryQuery(incident) }),
+                },
+              },
+            ];
 
-      for (const call of message.tool_calls) {
+      messages.push({ ...message, tool_calls: toolCalls });
+
+      for (const call of toolCalls) {
         if (call.function.name === "search_incident_memory") {
           const toolStartTime = Date.now();
           const elapsedBeforeTool = toolStartTime - startTime;
@@ -1196,6 +1229,7 @@ Please investigate this incident. If historical organizational experience could 
                   age,
                   score: r.score,
                   text: r.text,
+                  isRecentlyLearned: isRecent,
                 };
 
                 if (!collectedEvidence.some((e) => e.incidentId === docId)) {

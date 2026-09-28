@@ -44,7 +44,17 @@ export function getStoredIncidents(): Incident[] {
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+      const cleaned = parsed.filter(
+        (inc) =>
+          inc &&
+          typeof inc.id === "string" &&
+          !inc.id.startsWith("INC-HARDENING-") &&
+          !inc.id.startsWith("INC-TEST-")
+      );
+      if (cleaned.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+      }
+      return cleaned.length > 0 ? cleaned : initialMockIncidents;
     }
   } catch (e) {
     console.warn("Failed to load incidents from localStorage, using defaults:", e);

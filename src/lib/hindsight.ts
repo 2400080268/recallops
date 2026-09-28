@@ -194,7 +194,14 @@ export async function recallIncidentMemory(
     "Hindsight Cloud recall"
   );
 
-  const results: RecalledMemoryResult[] = (recallResponse.results || [])
+  const rawResults = (recallResponse.results || []).filter(
+    (item) =>
+      !item.document_id?.startsWith("INC-HARDENING-") &&
+      !item.document_id?.startsWith("INC-TEST-") &&
+      !item.text?.includes("INC-HARDENING-")
+  );
+
+  const results: RecalledMemoryResult[] = rawResults
     .slice(0, limit)
     .map((item) => {
       const entityNames = Object.keys(recallResponse.entities || {});
@@ -252,6 +259,9 @@ export interface RetainPostMortemResult {
  * Retains a structured incident post-mortem into Hindsight Cloud (shopease-incidents).
  * Handles deduplication by checking existing documentId/content before retaining.
  */
+// In-process cache of retained incident IDs to provide instant deduplication protection
+const retainedIncidentIdsCache = new Set<string>();
+
 export async function retainResolvedPostMortem(
   params: RetainPostMortemParams
 ): Promise<RetainPostMortemResult> {
@@ -294,7 +304,21 @@ ${params.lessonsLearned}
 
 This incident was resolved on ${resolvedDateString}.`;
 
-  // 1. Deduplication check: check if memory for this incidentId already exists
+  // 1. Fast in-memory deduplication check
+  if (retainedIncidentIdsCache.has(params.incidentId)) {
+    return {
+      success: true,
+      incidentId: params.incidentId,
+      memoryCaptured: true,
+      memoryId: params.incidentId,
+      alreadyExists: true,
+      timestamp: new Date().toISOString(),
+      bankId,
+      postMortem: postMortemText,
+    };
+  }
+
+  // 2. Cloud deduplication check: check if memory for this incidentId already exists in Hindsight
   try {
     const existing = await client.recall(bankId, `incident ${params.incidentId}`, {
       maxTokens: 1024,
@@ -307,6 +331,7 @@ This incident was resolved on ${resolvedDateString}.`;
     );
 
     if (alreadyStored) {
+      retainedIncidentIdsCache.add(params.incidentId);
       return {
         success: true,
         incidentId: params.incidentId,
@@ -347,6 +372,8 @@ This incident was resolved on ${resolvedDateString}.`;
   if (!response.success) {
     throw new Error(`Hindsight client retain returned success: false for bank ${bankId}`);
   }
+
+  retainedIncidentIdsCache.add(params.incidentId);
 
   return {
     success: true,

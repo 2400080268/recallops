@@ -251,17 +251,24 @@ at com.shopease.chaos.ChaosInterceptor.inject(ChaosInterceptor.kt:33)`,
                       <span className="text-xs font-semibold text-[#FAFAFA]">
                         {scenario.title}
                       </span>
-                      <span
-                        className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
-                          scenario.severity === "Critical"
-                            ? "bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/30"
-                            : isP1
-                            ? "bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30"
-                            : "bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30"
-                        }`}
-                      >
-                        {scenario.severity === "Critical" ? "Critical" : isP1 ? "High Sev / P1" : "Med Sev"}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        {scenario.id === "checkout-503" && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/30 font-semibold">
+                            GOLDEN DEMO
+                          </span>
+                        )}
+                        <span
+                          className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${
+                            scenario.severity === "Critical"
+                              ? "bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/30"
+                              : isP1
+                              ? "bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30"
+                              : "bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30"
+                          }`}
+                        >
+                          {scenario.severity === "Critical" ? "Critical" : isP1 ? "High Sev / P1" : "Med Sev"}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="text-[10px] font-mono text-[#71717A] truncate mb-2">
@@ -391,7 +398,7 @@ at com.shopease.chaos.ChaosInterceptor.inject(ChaosInterceptor.kt:33)`,
               className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#3B82F6] hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-sm transition-all shadow-md cursor-pointer disabled:opacity-50"
             >
               <Zap size={16} className="fill-current text-white" />
-              <span>{simulating ? "Injecting Fault Telemetry..." : "Trigger Incident"}</span>
+              <span>{simulating ? "Injecting Fault Telemetry..." : "Inject Incident"}</span>
             </button>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -439,7 +446,7 @@ at com.shopease.chaos.ChaosInterceptor.inject(ChaosInterceptor.kt:33)`,
               HISTORICAL INCIDENT
             </div>
             <div className="text-xs text-[#FAFAFA] font-medium mb-3">
-              INC-2023-8841 (Black Friday Redis Pod Starvation)
+              INC-1001 (Flash Sale Checkout Redis Saturation)
             </div>
 
             <div className="text-[10px] font-mono uppercase tracking-wider text-[#71717A] mb-1">

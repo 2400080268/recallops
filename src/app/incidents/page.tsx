@@ -205,6 +205,16 @@ export default function IncidentsListPage() {
                         >
                           {incident.severity}
                         </span>
+                        {incident.aiAnalysis && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#22D3EE]/10 text-[#22D3EE] border border-[#22D3EE]/30">
+                            AI Analyzed
+                          </span>
+                        )}
+                        {incident.memoryCaptured && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/30">
+                            Memory Retained
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-[#71717A] font-mono">

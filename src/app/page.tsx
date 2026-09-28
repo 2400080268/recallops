@@ -49,17 +49,24 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#111111] border border-[#27272A] text-xs text-[#A1A1AA] font-mono">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111111] border border-[#27272A] text-xs text-[#A1A1AA] font-mono">
             <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E]"></span>
             <span>Auto-sync: 30s</span>
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#111111] border border-[#27272A] hover:bg-[#171717] text-xs font-medium text-[#FAFAFA] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#111111] border border-[#27272A] hover:bg-[#171717] text-xs font-medium text-[#FAFAFA] transition-colors"
           >
             <RefreshCw size={13} className="text-[#A1A1AA]" />
             <span>Sync</span>
           </button>
+          <Link
+            href="/simulator"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#3B82F6] hover:bg-blue-600 text-xs font-semibold text-white transition-colors shadow-sm"
+          >
+            <Zap size={13} className="fill-current text-white" />
+            <span>Simulate Incident</span>
+          </Link>
         </div>
       </div>
 
@@ -340,12 +347,12 @@ export default function DashboardPage() {
                         92% similarity
                       </span>
                       <span className="text-[10px] font-mono text-[#71717A]">
-                        ref INC-2041
+                        ref INC-1001
                       </span>
                     </div>
                     <p className="text-xs text-[#A1A1AA] mt-1 leading-relaxed">
                       Active <strong className="text-white">Checkout API 503</strong> matches symptoms from{" "}
-                      <strong className="text-white">INC-2041</strong> (Oct 24). Mitigated by increasing connection pool sizing on Envoy upstream proxy.
+                      <strong className="text-white">INC-1001</strong> (Flash Sale Outage). Mitigated by increasing Jedis worker pool to 200 connections.
                     </p>
                     <div className="flex items-center gap-3 mt-2 text-xs">
                       <Link

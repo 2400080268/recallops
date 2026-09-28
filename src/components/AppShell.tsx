@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Zap,
@@ -20,6 +20,7 @@ import { useIncidents } from "@/lib/incident-store";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { incidents } = useIncidents();
 
@@ -28,9 +29,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/simulator", label: "Incident Simulator", icon: Zap },
+    { href: "/simulator", label: "Simulator", icon: Zap },
     { href: "/incidents", label: "Incidents", icon: AlertTriangle },
-    { href: `/incidents/${latestIncidentId}`, label: "Investigation", icon: Search },
     { href: "/memory", label: "Memory", icon: Brain },
     { href: "/settings", label: "Settings", icon: SlidersHorizontal },
   ];
@@ -39,11 +39,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (href === "/") {
       return pathname === "/" || pathname === "/dashboard";
     }
-    if (href.startsWith("/incidents/")) {
-      return pathname.startsWith("/incidents/") && pathname !== "/incidents";
-    }
     if (href === "/incidents") {
-      return pathname === "/incidents";
+      return pathname.startsWith("/incidents");
+    }
+    if (href === "/memory") {
+      return pathname.startsWith("/memory");
     }
     return pathname.startsWith(href);
   };
@@ -144,13 +144,59 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
 
-            {/* Breadcrumbs */}
-            <div className="hidden sm:flex items-center gap-2 text-xs text-[#71717A] font-mono">
-              <span className="text-[#D4D4D8]">ShopEase</span>
+            {/* Dynamic Breadcrumbs */}
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#71717A] font-mono">
+              <Link href="/" className="text-[#D4D4D8] hover:text-[#FAFAFA] transition-colors">
+                ShopEase
+              </Link>
               <span>/</span>
-              <span>Production</span>
-              <span>/</span>
-              <span className="text-[#A1A1AA]">us-east-1</span>
+              {pathname.startsWith("/incidents/") ? (
+                <>
+                  <Link href="/incidents" className="hover:text-[#FAFAFA] transition-colors">
+                    Incidents
+                  </Link>
+                  <span>/</span>
+                  <span className="text-[#22D3EE] font-medium font-mono">{pathname.split("/")[2]}</span>
+                </>
+              ) : pathname.startsWith("/memory/") ? (
+                <>
+                  <Link href="/memory" className="hover:text-[#FAFAFA] transition-colors">
+                    Memory
+                  </Link>
+                  <span>/</span>
+                  <span className="text-[#22D3EE] font-medium font-mono">{pathname.split("/")[2]}</span>
+                </>
+              ) : pathname === "/simulator" ? (
+                <>
+                  <span className="text-[#71717A]">Staging</span>
+                  <span>/</span>
+                  <span className="text-[#FAFAFA]">Simulator</span>
+                </>
+              ) : pathname === "/incidents" ? (
+                <>
+                  <span className="text-[#71717A]">Triage</span>
+                  <span>/</span>
+                  <span className="text-[#FAFAFA]">Incidents</span>
+                </>
+              ) : pathname === "/memory" ? (
+                <>
+                  <span className="text-[#71717A]">Hindsight</span>
+                  <span>/</span>
+                  <span className="text-[#FAFAFA]">Memory</span>
+                </>
+              ) : pathname === "/settings" ? (
+                <>
+                  <span className="text-[#71717A]">Platform</span>
+                  <span>/</span>
+                  <span className="text-[#FAFAFA]">Settings</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[#71717A]">Production</span>
+                  <span>/</span>
+                  <span className="text-[#FAFAFA]">Dashboard</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -164,11 +210,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 type="text"
                 readOnly
                 placeholder="Search incidents, memory, runs..."
-                className="w-full pl-9 pr-12 py-1.5 bg-[#111111] border border-[#27272A] rounded-lg text-xs text-[#A1A1AA] placeholder-[#71717A] focus:outline-none focus:border-[#3F3F46] cursor-pointer"
-                onClick={() => {
-                  const searchInput = document.querySelector<HTMLInputElement>("#global-search-input");
-                  searchInput?.focus();
-                }}
+                className="w-full pl-9 pr-12 py-1.5 bg-[#111111] border border-[#27272A] hover:border-[#3F3F46] rounded-lg text-xs text-[#A1A1AA] placeholder-[#71717A] focus:outline-none cursor-pointer transition-colors"
+                onClick={() => router.push("/incidents")}
               />
               <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
                 <kbd className="text-[10px] font-mono text-[#71717A] bg-[#171717] px-1.5 py-0.5 rounded border border-[#27272A]">
